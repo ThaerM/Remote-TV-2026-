@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routing/app_router.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../tv/application/tv_session_controller.dart';
+import '../application/paired_android_tv_controller.dart';
 
-/// Shows the currently connected device and lets the user disconnect or
-/// find another TV. "Saved TVs" and connection history are a follow-up -
+/// Shows the currently connected device, plus any Android TVs paired in
+/// a previous session, and lets the user disconnect, forget, or find
+/// another TV. Connection history and per-TV renaming are a follow-up -
 /// see docs/product/feature-roadmap.md.
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
@@ -16,47 +18,84 @@ class DevicesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(tvSessionControllerProvider);
     final notifier = ref.read(tvSessionControllerProvider.notifier);
+    final pairedDevices = ref.watch(pairedAndroidTvDevicesProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Devices')),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Connected', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
-            if (session.isConnected && session.selectedDevice != null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.tv_rounded),
-                  title: Text(session.selectedDevice!.name),
-                  subtitle: Text(session.selectedDevice!.platform.displayName),
-                  trailing: TextButton(
-                    onPressed: notifier.disconnect,
-                    child: const Text('Disconnect'),
-                  ),
-                ),
-              )
-            else
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.tv_off_rounded),
-                  title: const Text('No TV connected'),
-                  trailing: TextButton(
-                    onPressed: () => context.go(AppRoutes.discovery),
-                    child: const Text('Find a TV'),
-                  ),
+        children: [
+          Text('Connected', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          if (session.isConnected && session.selectedDevice != null)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.tv_rounded),
+                title: Text(session.selectedDevice!.name),
+                subtitle: Text(session.selectedDevice!.platform.displayName),
+                trailing: TextButton(
+                  onPressed: notifier.disconnect,
+                  child: const Text('Disconnect'),
                 ),
               ),
-            const SizedBox(height: AppSpacing.lg),
-            OutlinedButton.icon(
-              onPressed: () => context.go(AppRoutes.discovery),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add another TV'),
+            )
+          else
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.tv_off_rounded),
+                title: const Text('No TV connected'),
+                trailing: TextButton(
+                  onPressed: () => context.go(AppRoutes.discovery),
+                  child: const Text('Find a TV'),
+                ),
+              ),
             ),
-          ],
-        ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Paired Android TVs',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          pairedDevices.when(
+            data: (devices) => devices.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    child: Text('No Android TVs paired yet.'),
+                  )
+                : Column(
+                    children: [
+                      for (final device in devices)
+                        Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.tv_rounded),
+                            title: Text(device.name),
+                            subtitle: Text(
+                              'Last seen at ${device.lastKnownHost}',
+                            ),
+                            trailing: TextButton(
+                              onPressed: () => ref.read(
+                                forgetAndroidTvDeviceProvider,
+                              )(device.deviceId),
+                              child: const Text('Forget'),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: LinearProgressIndicator(),
+            ),
+            error: (error, stackTrace) =>
+                Text('Could not load paired TVs: $error'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          OutlinedButton.icon(
+            onPressed: () => context.go(AppRoutes.discovery),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add another TV'),
+          ),
+        ],
       ),
     );
   }
