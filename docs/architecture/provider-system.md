@@ -67,3 +67,39 @@ pairing needs zero UI changes.
 registered provider keyed by `TvPlatform` and can `discoverAll()` across
 all of them in parallel, tolerating individual provider failures.
 `TvSessionController` is the only consumer that should read from it.
+
+## Worked example: `AndroidTvProvider`
+
+`lib/tv/providers/android_tv/` is the first real (non-fake) provider and
+a template for the structure a new one should follow:
+
+```
+android_tv/
+  android_tv_provider.dart        TvProvider implementation, orchestrates
+                                  the pieces below; owns the connection
+                                  state machine and reconnect policy
+  android_tv_constants.dart        Ports, timeouts, mDNS service type
+  discovery/                       mDNS discovery -> TvDevice
+  security/                        Self-signed cert/key identity +
+                                   pairing-secret hash computation
+  transport/                       AndroidTvMessageTransport interface
+                                   (varint framing) + the real TLS socket
+                                   implementation
+  protocol/
+    generated/                     Vendored protobuf bindings (see its
+                                   NOTICE.md for provenance/licensing)
+    pairing_handshake.dart         State machine for the pairing protocol
+    remote_session.dart            State machine for the remote-control
+                                   protocol
+    command_mapper.dart            TvCommandKey -> protocol-specific enum
+  storage/                         Non-sensitive metadata (shared_preferences)
+                                   + pairing identity (SecureCredentialStore)
+```
+
+The key pattern worth copying: `AndroidTvMessageTransport` is an
+interface, not a concrete socket type, specifically so
+`PairingHandshake` and `RemoteSession` can be unit-tested against a fake
+transport instead of a real network connection - see
+`test/tv/providers/android_tv/`. A provider whose protocol logic can't be
+exercised without a real device is much harder to keep correct; design
+for the fake-transport seam from the start.

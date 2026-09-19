@@ -1,90 +1,200 @@
 # Research: Android TV / Google TV
 
+**Status: implemented in `lib/tv/providers/android_tv/` (Phase 1). Not yet
+validated against a physical device** - see
+`docs/testing/android-tv-real-device.md` before trusting this against
+real hardware.
+
+## Protocol status
+
+**UNOFFICIAL.** Google does not publish this protocol or an SDK for
+third-party remote-control apps; there is no Terms of Service covering
+this use the way Roku documents its ECP for third parties. The protocol
+is what Google's own "Android TV Remote Control" app and the Android TV
+system's built-in remote-pairing flow use, observed and maintained by an
+active open-source community. Confidence in the protocol *shape* is
+high (see Sourcing below); confidence in long-term stability is
+necessarily lower than an officially documented API, since Google could
+change it without notice.
+
+## Sourcing (exact provenance)
+
+The Dart protobuf bindings in `lib/tv/providers/android_tv/protocol/generated/`
+were generated with `protoc` from the `FileDescriptorProto` embedded in
+the **`androidtvremote2`** Python package
+(PyPI: `androidtvremote2`, source: `github.com/tronikos/androidtvremote2`,
+Apache-2.0), which is the library behind Home Assistant's official
+`androidtv_remote` integration - a widely-deployed, actively maintained
+implementation. The pairing handshake and remote-session logic in
+`pairing_handshake.dart` / `remote_session.dart` reproduce that package's
+`pairing.py` / `remote.py` state machines message-for-message. See
+`lib/tv/providers/android_tv/protocol/generated/NOTICE.md` for the
+license/attribution details.
+
 ## Discovery
 
-Android TV Remote-capable devices advertise mDNS/Bonjour service type
-`_androidtvremote2._tcp.local.` on port 6467 (pairing) and 6466 (remote
-control after pairing). This is the same mechanism Google's own official
-"Android TV Remote Control" app and Home Assistant's `androidtv` /
-`androidtvremote2` integration use.
+mDNS/Bonjour service type `_androidtvremote2._tcp.local.`, port 6467
+(pairing) and 6466 (remote control, after pairing).
+
+**Implemented**: `AndroidTvDiscovery` (`discovery/android_tv_discovery.dart`)
+using `package:multicast_dns`. De-duplicates by resolved host, has an
+explicit start/stop lifecycle, and returns whatever it found rather than
+throwing on a partial scan.
+
+**Needs physical-TV validation**: whether real Android TV/Google TV
+devices reliably advertise this service on typical home routers (some
+routers block or rate-limit multicast).
 
 ## Pairing
 
-Two-phase TLS handshake:
+Two-phase TLS handshake, both using self-signed certificates with no
+certificate authority - trust is established by both sides hashing their
+public keys together with a 6-hex-digit code the TV displays, not by
+certificate chain validation. See `docs/architecture/security.md` for
+why `onBadCertificate` accepting the peer is correct here, not a
+shortcut.
 
-1. **Pairing phase** (port 6467): client and TV exchange self-signed TLS
-   certificates, TV displays a 6-digit code, client sends it back over
-   the encrypted channel to prove it saw the code (protects against a
-   different device on the network claiming to be the pairing client).
-2. **Remote phase** (port 6466): subsequent connections reuse the
-   certificate pair established during pairing - no code re-entry needed
-   on reconnect, as long as the client persists its cert/key.
+**Pairing phase** (port 6467, `polo.proto` / `OuterMessage`):
 
-This maps directly onto `TvPinPairingRequest` in our domain model,
-and the certificate becomes the "pairing secret" that must go through
-`SecureCredentialStore` rather than plain storage.
+```
+client -> pairing_request           {client_name, service_name: "atvremote"}
+server -> pairing_request_ack
+client -> options                   {preferred_role: INPUT, encoding: HEX/6}
+server -> options
+client -> configuration             {client_role: INPUT, encoding: HEX/6}
+server -> configuration_ack         <- TV now displays the code
+[user reads the code, enters it]
+client -> secret                    {secret: sha256(...)}
+server -> secret_ack                <- paired
+```
 
-## Protocol
+Secret computation (verified self-consistent in
+`test/tv/providers/android_tv/android_tv_identity_test.dart` by
+brute-forcing a code that actually validates, not just asserted):
 
-Protobuf messages over the TLS socket (`RemoteMessage` proto, tagged with
-a 2-byte length prefix). Google does not publish this proto publicly, but
-it has been reverse-engineered and is stable across Android TV/Google TV
-OS versions - see the `androidtvremote2` Python package and the
-`androidtv` Home Assistant integration as reference implementations.
+```
+SHA256(
+  hex(client_modulus) + hex(client_exponent, min 2 bytes) +
+  hex(server_modulus) + hex(server_exponent, min 2 bytes) +
+  hex(pairing_code[2:])
+)[0] == pairing_code[0:2] as a byte
+```
+
+**Implemented**: `PairingHandshake` (state machine, tested against a fake
+transport), `AndroidTvIdentity` (RSA-2048 self-signed cert/key generation
+via `package:basic_utils`, tested), `AndroidTvPairingSecret` (the hash
+above, tested).
+
+**Needs physical-TV validation**: the actual pairing UX on a real TV
+(prompt wording, whether the code is always exactly 6 hex digits on
+every OS version, timing).
+
+## Remote-control protocol
+
+TLS on port 6466, reusing the paired certificate (no re-pairing needed on
+reconnect). `remotemessage.proto` / `RemoteMessage`, framed with a varint
+length prefix (implemented in `transport/android_tv_message_transport.dart`,
+unit-tested independent of the TLS layer).
+
+Connection handshake:
+
+```
+server -> remote_configure   {code1: <feature bitmask>, device_info}
+client -> remote_configure   {code1: <our supported subset>, our device_info}
+server -> remote_set_active
+client -> remote_set_active
+server -> remote_start       {started: true}   <- ready to accept commands
+```
+
+The TV pings roughly every 5s; `RemoteSession` answers `remote_ping_request`
+with `remote_ping_response` and additionally self-disconnects after 16s of
+total silence (matching the reference client) rather than waiting to be
+dropped.
+
+**Implemented**: `RemoteSession` (tested against a fake transport for
+configure/ping/key-inject/volume-update).
+
+**Needs physical-TV validation**: real-world negotiated feature bitmask
+per device/OS version (which features a given TV actually reports).
 
 ## Remote commands
 
-Full key-event set (equivalent to a physical remote): D-pad, Home, Back,
-volume up/down/mute, media play/pause, power. No manufacturer-specific
-color keys (that's a cable-box/Samsung concept, not Android TV's).
+D-pad, Home, Back, Menu, Guide, Info, TV-input, volume up/down/mute,
+channel up/down, digits 0-9, and the standard media transport keys map
+directly onto `RemoteKeyCode` - see
+`lib/tv/providers/android_tv/protocol/command_mapper.dart`. **No color
+keys and no "previous channel" key exist in this protocol** (that's a
+cable-box/Samsung concept) - `AndroidTvCommandMapper.unsupportedByProtocol`
+makes this explicit so the UI never offers a button that would silently
+no-op.
 
 ## Keyboard
 
-Supported - the protocol has a text-input message distinct from
-individual key events, matching our `TvCommand.text(...)`.
+Supported via `remote_ime_batch_edit`, a distinct message type from key
+events - implemented in `RemoteSession.sendText`.
 
 ## Voice
 
-Not exposed through this protocol. Assistant voice input on Android TV
-goes through Google Assistant's own (not publicly documented for
-third-party apps) channel. Treat `TvCapabilities.voice = false` for this
-provider until proven otherwise.
+**Not implemented, by design.** The reference protocol does support a
+voice session (`remote_voice_begin`/`remote_voice_payload`/`remote_voice_end`,
+triggered by sending `KEYCODE_SEARCH`), but it requires streaming raw PCM
+audio chunks from the phone's microphone to the TV - meaningfully more
+work and more sensitive (live audio capture) than this phase's scope.
+`TvCapabilities.voice` stays `false` for `AndroidTvProvider` until a
+dedicated phase implements it deliberately, with its own privacy review.
 
 ## App launching
 
-The protocol does not expose a general "launch any installed app" API.
-Deep-linking via Android intents (`android-app://` URIs) works for apps
-that register the right intent filters, which is how Google's own remote
-app implements "recently used apps." Full launcher control (arbitrary
-app by package name, guaranteed) is not available without ADB.
+The protocol launches apps via `remote_app_link_launch_request` with an
+Android **app-link URI** (e.g. `https://www.netflix.com/`), not a package
+name - this is an Android intent deep-link, resolved by whichever app
+registered a matching intent filter, not a general "launch any installed
+app by ID" API. `AndroidTvAppLinks` in `command_mapper.dart` holds a
+small, deliberately conservative set of verified app links (Netflix,
+YouTube) rather than guessing URIs for apps we haven't confirmed.
 
 ## Power / wake
 
-Power-toggle is a key event within the protocol (works while the TV is
-awake or in a low-power state that still has network + mDNS up).
-True "wake from fully off" needs Wake-on-LAN, which requires
-Android TV's WoL setting enabled by the user and is inconsistent across
-OEMs (varies by chipset/firmware, not purely Google's software stack).
-
-## Official vs. reverse-engineered
-
-Not an official third-party API. Google does not publish an SDK or
-Terms of Service for third-party remote-control apps using this
-protocol; the protocol is what Google's own Android TV Remote Control
-app uses, observed and documented by the community. This is a
-meaningfully different risk profile than Roku's ECP (which Roku
-explicitly documents for third parties) - flag this to the user before
-Phase 1 implementation begins.
+Power is a key event (`KEYCODE_POWER`) reported through the negotiated
+feature bitmask (`Feature.POWER`), only offered when the TV reports
+support. **Wake-on-LAN is not implemented** - `TvCapabilities.wakeOnLan`
+is `false` for this provider; real support would need the TV's MAC
+address (not returned by this protocol) and the user's TV to have WoL
+enabled, which is inconsistent across OEMs.
 
 ## Fire TV note
 
 Fire TV (Amazon's AOSP fork) does **not** run Google's Android TV Remote
-service - this protocol will not work against Fire TV devices. Fire TV
-needs its own research track (Phase 9).
+service - `AndroidTvProvider` will not discover or connect to Fire TV
+devices. Fire TV needs its own research track (Phase 9).
 
-## Recommended Phase 1 scope
+## Reconnect behavior
 
-Discovery, pairing (cert exchange + PIN), D-pad/Home/Back/volume/media
-key events, keyboard text input, reconnect using persisted certs. Explicit
-non-goals for Phase 1: voice, general app launching by package name,
-guaranteed wake-on-LAN (expose it as best-effort, capability-gated).
+`AndroidTvProvider` reconnects with exponential backoff (1s, 2s, 4s, 8s,
+16s, capped at 30s) when the remote-control connection drops
+unexpectedly (network blip, TV standby, app backgrounded past the idle
+watchdog), and stops attempting once the user explicitly disconnects or
+forgets the device. See `docs/architecture/provider-system.md`.
+
+## Tested vs. untested assumptions summary
+
+| Area | Status |
+|---|---|
+| mDNS discovery parsing, de-duplication | Implemented, not device-tested |
+| Certificate generation, PEM round-trip | Implemented and unit-tested |
+| Pairing secret hash algorithm | Implemented and unit-tested (self-consistent) |
+| Pairing handshake message sequence | Implemented and unit-tested (fake transport) |
+| Remote-session handshake, ping, key inject | Implemented and unit-tested (fake transport) |
+| TLS trust model (self-signed, no CA) | Implemented per reference client's approach, not device-tested |
+| Real pairing UX on-device | **Needs physical-TV validation** |
+| Real per-device capability accuracy | **Needs physical-TV validation** |
+| Reconnect timing under real network conditions | **Needs physical-TV validation** |
+| Cross-manufacturer/OS-version compatibility | **Needs physical-TV validation** |
+| Voice, general app install/launch, screen mirroring | **Future work**, explicitly out of scope |
+
+## Recommended Phase 2
+
+Google Cast (separate protocol, separate provider - see
+`docs/research/google-cast.md`). Do not start until this phase passes
+the manual real-device test sequence in
+`docs/testing/android-tv-real-device.md`.

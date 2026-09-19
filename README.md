@@ -3,14 +3,20 @@
 A universal, capability-aware smart TV remote and companion app built
 with Flutter.
 
-## Project status: Foundation
+## Project status: Phase 1 (Android TV / Google TV)
 
-This is the Foundation phase. **The app currently ships with only a demo
-TV provider (`FakeTvProvider`)** - no real television integration exists
-yet. Discovery, pairing, connecting, and sending remote commands all work
-end-to-end, but against three simulated demo devices, not real hardware.
-Real vendor support is planned platform-by-platform - see
-[`docs/product/feature-roadmap.md`](docs/product/feature-roadmap.md).
+The Foundation phase shipped a fake-device-only remote experience.
+**Phase 1 adds a real provider: `AndroidTvProvider`**, implementing real
+mDNS discovery, real TLS certificate pairing, and the real Android TV
+Remote v2 protocol - see
+[`docs/research/android-google-tv.md`](docs/research/android-google-tv.md).
+**This has not yet been validated against a physical TV** - its protocol
+logic is unit-tested in isolation (including a self-consistency check of
+the pairing-secret cryptography), but the real-device pass in
+[`docs/testing/android-tv-real-device.md`](docs/testing/android-tv-real-device.md)
+still needs to happen before it should be trusted or advertised as
+working. `FakeTvProvider` remains available alongside it for UI
+development, tests, and demos.
 
 ## What's implemented
 
@@ -21,23 +27,33 @@ Real vendor support is planned platform-by-platform - see
   [`docs/architecture/provider-system.md`](docs/architecture/provider-system.md)
 - `FakeTvProvider`: three demo devices with different capability sets, so
   the remote UI can be proven to adapt per device without real hardware
+- `AndroidTvProvider`: real mDNS discovery, real TLS pairing handshake,
+  real authenticated remote-control protocol, capability-gated commands,
+  reconnect with backoff, secure pairing-identity persistence - **pending
+  physical-device validation**, see
+  [`docs/research/android-google-tv.md`](docs/research/android-google-tv.md)
 - Capability-driven Remote screen: every control group (D-pad, volume,
   channel, keyboard, voice, media transport, numeric keypad, color keys,
   quick app shortcuts) renders only when the connected device reports
   support for it
 - Full first-run flow: Welcome -> Discovery -> Pairing (PIN) -> Remote
-- Cast, Devices, and Settings screens (Remote Layout, Remote Behavior,
-  Diagnostics)
-- Secure credential storage abstraction (Keychain/Keystore via
-  `flutter_secure_storage`), not yet used by a real provider
+- Cast, Devices (including paired Android TVs, with Forget), and Settings
+  screens (Remote Layout, Remote Behavior, Diagnostics)
+- Secure credential storage (Keychain/Keystore via
+  `flutter_secure_storage`), used by `AndroidTvProvider` to persist its
+  pairing identity
 - Structured logging convention (`AppLogger`, `[TV][...]` tags)
 - Unit + widget tests, GitHub Actions CI
 
-## Planned platforms (not yet implemented)
+## Planned platforms
 
-Android TV / Google TV, Google Cast, Samsung (Tizen), LG webOS, Roku,
-Fire TV, DLNA/UPnP - research for each is in
-[`docs/research/`](docs/research). See the roadmap for sequencing.
+Android TV / Google TV is implemented (Phase 1, pending device
+validation - see above). Google Cast, Samsung (Tizen), LG webOS, Roku,
+Fire TV, and DLNA/UPnP are not yet implemented - research for each is in
+[`docs/research/`](docs/research). See the roadmap for sequencing. **Do
+not treat "implemented" as "verified working on every device"** - see
+each provider's own research doc for what's been validated versus what
+still needs real-device testing.
 
 ## Architecture
 
@@ -75,9 +91,15 @@ flutter build apk --debug                # Android debug build (requires Android
 `flutter test` covers: `TvCapabilities` equality/copyWith, the provider
 registry, `FakeTvProvider`'s full discover -> pair -> command lifecycle
 (including unsupported-command and wrong-PIN failure paths), the
-in-memory credential store, the settings controller, and a widget test
+in-memory credential store, the settings controller, a widget test
 proving the Remote screen renders different controls for different
-`TvCapabilities`.
+`TvCapabilities`, and `AndroidTvProvider`'s protocol layer (certificate
+generation, the pairing-secret hash, message framing, the pairing and
+remote-session state machines, command mapping, paired-device
+persistence, and a full discover-pair-connect-forget integration test)
+against fake transports - no physical TV required. See
+[`docs/testing/android-tv-real-device.md`](docs/testing/android-tv-real-device.md)
+for the manual pass that still needs a real device.
 
 ## For AI agents / future contributors
 

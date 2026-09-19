@@ -12,10 +12,20 @@ protocol inside its own provider - **not** one shared network protocol.
 
 ## Current phase
 
-**Foundation.** Only `FakeTvProvider` (three simulated demo devices)
-exists. No real TV integration. Do not claim real-device support in code
-comments, UI copy, or docs. See `docs/product/feature-roadmap.md` for
-what's next and why Android TV/Google TV is the recommended Phase 1.
+**Phase 1: Android TV / Google TV.** `AndroidTvProvider`
+(`lib/tv/providers/android_tv/`) implements real mDNS discovery, real
+TLS certificate pairing, and the real Android TV Remote v2 protocol,
+registered alongside (not replacing) `FakeTvProvider`. Its protocol
+logic is unit-tested against fake transports, but **it has not been
+validated against a physical TV yet** - see
+`docs/testing/android-tv-real-device.md` for the manual pass that must
+happen before claiming it works, and
+`docs/research/android-google-tv.md`'s "Tested vs. untested assumptions"
+table for exactly what's proven versus what isn't. Do not claim
+real-device-verified support in code comments, UI copy, or docs until
+that manual pass has actually been run. Per the current task's stop
+condition, no other real provider (Cast, Samsung, LG, Roku, Fire TV) has
+been started - see `docs/product/feature-roadmap.md`.
 
 ## Architecture (read `docs/architecture/overview.md` for full detail)
 
@@ -111,11 +121,10 @@ All four run in CI (`.github/workflows/flutter-ci.yml`) on every PR to
 
 ## Recommended next task
 
-Phase 1: real Android TV / Google TV support. Start from
-`docs/research/android-google-tv.md` (mDNS discovery, TLS cert-pairing
-handshake, protobuf remote protocol) and
-`docs/architecture/provider-system.md` ("Adding a new provider"). Create
-`lib/tv/providers/android_tv/`, implement `TvProvider` against the real
-protocol, persist the pairing certificate via `SecureCredentialStore`,
-register it in `tv_provider_registry_provider.dart` alongside (not
-replacing) `FakeTvProvider`, and add provider-level tests.
+Run the manual real-device pass in
+`docs/testing/android-tv-real-device.md` against an actual Android TV /
+Google TV device and fix whatever it finds - this is the gating step
+before Phase 1 can be considered done. Do not start Phase 2 (Google
+Cast) or any other real provider before that validation happens and any
+resulting bugs are fixed, per the current task's explicit stop
+condition.
