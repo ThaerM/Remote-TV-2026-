@@ -27,3 +27,20 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Platform build artifacts
+**/android/.gradle/
+**/android/app/build/
+**/ios/Pods/
+**/ios/Flutter/Flutter.podspec
+
+# Secrets - never commit
+*.keystore
+key.properties
+GoogleService-Info.plist
+google-services.json
