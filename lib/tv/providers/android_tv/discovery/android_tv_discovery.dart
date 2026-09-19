@@ -95,7 +95,11 @@ class AndroidTvDiscovery {
       _client.stop();
     }
 
-    return results.values.toList(growable: false);
+    final devices = results.values.toList(growable: false);
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] completed count=${devices.length}',
+    );
+    return devices;
   }
 
   Future<String?> _resolveHost(String target) async {

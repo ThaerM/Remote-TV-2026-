@@ -68,6 +68,26 @@ registered provider keyed by `TvPlatform` and can `discoverAll()` across
 all of them in parallel, tolerating individual provider failures.
 `TvSessionController` is the only consumer that should read from it.
 
+Because the registry is keyed by `TvPlatform`, there is no ambiguity
+between providers: `FakeTvProvider` owns `TvPlatform.fake` and
+`AndroidTvProvider` owns `TvPlatform.androidTv` - two distinct keys, so
+`forPlatform()` can never resolve a real device to the fake provider or
+vice versa. A `TvDevice`'s `isDevelopmentFake` flag is a UI-facing label
+on top of that, not the mechanism that keeps them apart.
+
+**Demo devices are opt-in, not always-on.** `tv_provider_registry_provider.dart`
+only registers `FakeTvProvider` into the registry when
+`kEnableDemoTvDevices` (`lib/core/config/app_config.dart`,
+`--dart-define=ENABLE_DEMO_TV_DEVICES=true`) is set - a normal `flutter
+run` against a real TV must never show demo devices mixed into real
+discovery results. This is deliberately not gated on `kDebugMode`: debug
+builds are also used for real-device testing (e.g. on a physical phone
+against a real TV), so debug-vs-release must not be conflated with
+real-vs-demo. The actual on/off decision lives in the plain function
+`selectRegisteredProviders`, kept separate from the `Provider` wiring
+specifically so it's unit-testable without a `--dart-define` recompile -
+see `test/tv/providers/tv_provider_registry_provider_test.dart`.
+
 ## Worked example: `AndroidTvProvider`
 
 `lib/tv/providers/android_tv/` is the first real (non-fake) provider and

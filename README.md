@@ -75,6 +75,14 @@ flutter pub get
 flutter run
 ```
 
+`flutter run` alone uses **real providers only** - no demo devices, so
+it's safe to run on a real phone against a real TV. To also see the
+three fake demo devices (UI development, screenshots, demos):
+
+```bash
+flutter run --dart-define=ENABLE_DEMO_TV_DEVICES=true
+```
+
 ## Commands
 
 ```bash

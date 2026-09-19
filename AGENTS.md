@@ -103,6 +103,12 @@ flutter test
 All four run in CI (`.github/workflows/flutter-ci.yml`) on every PR to
 `main`.
 
+`flutter run` alone registers real providers only (no demo devices).
+For UI development/demos, use
+`flutter run --dart-define=ENABLE_DEMO_TV_DEVICES=true` - see
+`lib/core/config/app_config.dart` and "Registry" in
+`docs/architecture/provider-system.md`.
+
 ## What NOT to do
 
 - Don't add manufacturer branching (`if (platform == ...)`) outside a
