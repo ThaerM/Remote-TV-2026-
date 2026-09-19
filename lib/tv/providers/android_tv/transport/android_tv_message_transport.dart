@@ -21,6 +21,11 @@ abstract interface class AndroidTvMessageTransport {
   /// Sends one message, adding the varint length prefix.
   void send(Uint8List messageBytes);
 
+  /// The peer's TLS certificate, PEM-encoded. Needed during pairing to
+  /// compute the pairing secret (see `AndroidTvPairingSecret.compute`);
+  /// callers should only read this on a pairing-port connection.
+  String get peerCertificatePem;
+
   Future<void> close();
 }
 

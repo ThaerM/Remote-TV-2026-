@@ -25,7 +25,7 @@ class TlsAndroidTvTransport implements AndroidTvMessageTransport {
   TlsAndroidTvTransport._(this._socket);
 
   final SecureSocket _socket;
-  final _messagesController = StreamController<Uint8List>.broadcast();
+  final _messagesController = StreamController<Uint8List>();
   final _defragmenter = MessageDefragmenter();
   final _doneCompleter = Completer<Object?>();
   StreamSubscription<Uint8List>? _rawSub;
@@ -64,8 +64,7 @@ class TlsAndroidTvTransport implements AndroidTvMessageTransport {
     }
   }
 
-  /// The peer certificate presented during the TLS handshake, wrapped as
-  /// PEM. Needed during pairing to compute the pairing secret.
+  @override
   String get peerCertificatePem {
     final der = _socket.peerCertificate?.der;
     if (der == null) {

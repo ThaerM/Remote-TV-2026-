@@ -37,12 +37,15 @@ class AndroidTvProvider implements TvProvider {
       required Duration timeout,
     })?
     connect,
+    AndroidTvIdentity Function()? generateIdentity,
   }) : _discovery = discovery ?? AndroidTvDiscovery(),
        _connect = connect ?? TlsAndroidTvTransport.connect,
+       _generateIdentity = generateIdentity ?? AndroidTvIdentity.generate,
        _logger = AppLogger('TV.Connection.AndroidTV');
 
   final AndroidTvPairedDeviceStore _store;
   final AndroidTvDiscovery _discovery;
+  final AndroidTvIdentity Function() _generateIdentity;
   final Future<AndroidTvMessageTransport> Function({
     required String host,
     required int port,
@@ -111,7 +114,7 @@ class AndroidTvProvider implements TvProvider {
       }
     }
 
-    _identity = AndroidTvIdentity.generate();
+    _identity = _generateIdentity();
     _pairingTransport = await _connect(
       host: host,
       port: AndroidTvConstants.pairingPort,
@@ -133,7 +136,7 @@ class AndroidTvProvider implements TvProvider {
     final handshake = _pairingHandshake;
     final identity = _identity;
     final device = _device;
-    if (transport is! TlsAndroidTvTransport ||
+    if (transport == null ||
         handshake == null ||
         identity == null ||
         device == null) {
