@@ -7,10 +7,7 @@ import 'secure_credential_store.dart';
 class FlutterSecureCredentialStore implements SecureCredentialStore {
   FlutterSecureCredentialStore({FlutterSecureStorage? storage})
     : _storage =
-          storage ??
-          const FlutterSecureStorage(
-            aOptions: AndroidOptions(encryptedSharedPreferences: true),
-          );
+          storage ?? const FlutterSecureStorage(aOptions: AndroidOptions());
 
   final FlutterSecureStorage _storage;
 
