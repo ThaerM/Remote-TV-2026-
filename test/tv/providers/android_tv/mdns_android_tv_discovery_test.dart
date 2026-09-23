@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:multicast_dns/multicast_dns.dart';
+import 'package:remote_tv_2026/core/network/multicast_lock.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/discovery/mdns_android_tv_discovery.dart';
 
@@ -303,6 +304,35 @@ void main() {
       });
     });
 
+    group('multicast lock', () {
+      test('is held for the scan and released afterwards', () async {
+        final lock = _RecordingLock();
+        final querier = FakeMdnsQuerier();
+        final discovery = MdnsAndroidTvDiscovery(
+          querierFactory: () => querier,
+          multicastLock: lock,
+        );
+
+        await discovery.discover(timeout: const Duration(milliseconds: 200));
+
+        expect(lock.events, ['acquire', 'release']);
+      });
+
+      test('is released even when start() fails', () async {
+        final lock = _RecordingLock();
+        final querier = FakeMdnsQuerier()
+          ..startError = const OSError('Address already in use', 48);
+        final discovery = MdnsAndroidTvDiscovery(
+          querierFactory: () => querier,
+          multicastLock: lock,
+        );
+
+        await discovery.discover();
+
+        expect(lock.events, ['acquire', 'release']);
+      });
+    });
+
     group('SystemMdnsQuerier', () {
       test('closes the socket it bound when start() fails part-way', () async {
         final closed = Completer<void>();
@@ -351,4 +381,14 @@ class _FailingAfterBindClient implements MDnsClient {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingLock implements MulticastLock {
+  final events = <String>[];
+
+  @override
+  Future<void> acquire() async => events.add('acquire');
+
+  @override
+  Future<void> release() async => events.add('release');
 }
