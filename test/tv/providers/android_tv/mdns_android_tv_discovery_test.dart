@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/android_tv_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/android_tv/discovery/mdns_android_tv_discovery.dart';
 
 /// A fully scripted, in-memory [MdnsQuerier] - no real sockets, so these
 /// tests run identically in CI as they do locally. Each lookup is keyed by
@@ -115,12 +115,12 @@ void main() {
     address: InternetAddress('192.168.1.42'),
   );
 
-  group('AndroidTvDiscovery', () {
+  group('MdnsAndroidTvDiscovery', () {
     test(
       'a PTR stream that never completes still returns after the deadline',
       () async {
         final querier = FakeMdnsQuerier()..neverCompleting.add(ptrKey);
-        final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+        final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
         final stopwatch = Stopwatch()..start();
         final results = await discovery.discover(
@@ -140,7 +140,7 @@ void main() {
         ..responses[ptrKey] = [ptrRecord()]
         ..responses[srvKey] = [srvRecord()]
         ..responses[ipKey] = [ipRecord()];
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final results = await discovery.discover();
 
@@ -156,7 +156,7 @@ void main() {
         ..responses[ptrKey] = [ptrRecord()]
         ..responses[srvKey] = [srvRecord()]
         ..delays[ipKey] = const Duration(seconds: 5);
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final stopwatch = Stopwatch()..start();
       final results = await discovery.discover(
@@ -172,7 +172,7 @@ void main() {
     test('SRV resolution failure for an instance completes the scan cleanly without it', () async {
       final querier = FakeMdnsQuerier()..responses[ptrKey] = [ptrRecord()];
       // No SRV response configured - lookup resolves to an empty stream.
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final results = await discovery.discover();
 
@@ -185,7 +185,7 @@ void main() {
         ..responses[ptrKey] = [ptrRecord(), ptrRecord()]
         ..responses[srvKey] = [srvRecord(), srvRecord()]
         ..responses[ipKey] = [ipRecord()];
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final results = await discovery.discover();
 
@@ -195,7 +195,7 @@ void main() {
     test('stop() runs even when start() throws', () async {
       final querier = FakeMdnsQuerier()
         ..startError = const SocketException('no network');
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final results = await discovery.discover();
 
@@ -209,7 +209,7 @@ void main() {
       addTearDown(sub.cancel);
 
       final querier = FakeMdnsQuerier();
-      final discovery = AndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final results = await discovery.discover();
 
@@ -223,9 +223,132 @@ void main() {
         isTrue,
       );
       expect(
-        records.any((r) => r.message == '[TV][DISCOVERY][ANDROID_TV] started'),
+        records.any(
+          (r) => r.message.startsWith('[TV][DISCOVERY][ANDROID_TV] started'),
+        ),
         isTrue,
       );
     });
+
+    group('start() failures seen on a real iPhone', () {
+      late List<LogRecord> records;
+
+      setUp(() {
+        records = <LogRecord>[];
+        final sub = Logger.root.onRecord.listen(records.add);
+        addTearDown(sub.cancel);
+      });
+
+      bool logged(String fragment) =>
+          records.any((r) => r.message.contains(fragment));
+
+      Future<void> expectSafeFailure(
+        Object error, {
+        required String reason,
+      }) async {
+        final querier = FakeMdnsQuerier()..startError = error;
+        final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+
+        final results = await discovery.discover();
+
+        expect(results, isEmpty);
+        expect(querier.stopped, isTrue);
+        expect(logged('start_failed type=${error.runtimeType}'), isTrue);
+        expect(logged('resolve_failed stage=START reason=$reason'), isTrue);
+        expect(logged('[TV][DISCOVERY][ANDROID_TV] completed count=0'), isTrue);
+      }
+
+      test(
+        'an OSError from joinMulticast (errno 48) no longer escapes discover()',
+        () => expectSafeFailure(
+          const OSError('Address already in use', 48),
+          reason: 'socket_bind_failed',
+        ),
+      );
+
+      test('a SocketException is handled the same way', () {
+        return expectSafeFailure(
+          const SocketException(
+            'bind failed',
+            osError: OSError('Address already in use', 98),
+          ),
+          reason: 'socket_bind_failed',
+        );
+      });
+
+      test('a privacy/sandbox refusal is classified as restricted', () {
+        return expectSafeFailure(
+          const OSError('No route to host', 65),
+          reason: 'permission_denied_or_restricted',
+        );
+      });
+
+      test('an arbitrary non-IO error is still caught', () {
+        return expectSafeFailure(
+          StateError('unexpected'),
+          reason: 'start_failed',
+        );
+      });
+
+      test('a querier factory that throws still completes the scan', () async {
+        final discovery = MdnsAndroidTvDiscovery(
+          querierFactory: () => throw StateError('no client'),
+        );
+
+        final results = await discovery.discover();
+
+        expect(results, isEmpty);
+        expect(logged('scan_failed type=StateError'), isTrue);
+        expect(logged('[TV][DISCOVERY][ANDROID_TV] completed count=0'), isTrue);
+      });
+    });
+
+    group('SystemMdnsQuerier', () {
+      test('closes the socket it bound when start() fails part-way', () async {
+        final closed = Completer<void>();
+        final querier = SystemMdnsQuerier(
+          clientFactory: (socketFactory) => _FailingAfterBindClient(
+            socketFactory,
+            onBound: (socket) => socket.listen(null, onDone: closed.complete),
+          ),
+        );
+
+        await expectLater(querier.start(), throwsA(isA<OSError>()));
+        await closed.future.timeout(const Duration(seconds: 2));
+        querier.stop();
+      });
+    });
   });
+}
+
+/// Mimics `MDnsClient.start()` binding its socket through the injected
+/// factory and then failing in `joinMulticast` - the real iPhone failure.
+/// Binds a real loopback UDP socket on an ephemeral port (not multicast).
+class _FailingAfterBindClient implements MDnsClient {
+  _FailingAfterBindClient(this._socketFactory, {required this.onBound});
+
+  final RawDatagramSocketFactory _socketFactory;
+  final void Function(RawDatagramSocket socket) onBound;
+
+  @override
+  Future<void> start({
+    InternetAddress? listenAddress,
+    NetworkInterfacesFactory? interfacesFactory,
+    int mDnsPort = 5353,
+    InternetAddress? mDnsAddress,
+    Function? onError,
+  }) async {
+    final socket = await _socketFactory(
+      InternetAddress.loopbackIPv4,
+      0,
+      reuseAddress: true,
+      reusePort: false,
+      ttl: 255,
+    );
+    onBound(socket);
+    throw const OSError('Address already in use', 48);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

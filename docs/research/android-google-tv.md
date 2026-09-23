@@ -37,9 +37,30 @@ mDNS/Bonjour service type `_androidtvremote2._tcp.local.`, port 6467
 (pairing) and 6466 (remote control, after pairing).
 
 **Implemented**: `AndroidTvDiscovery` (`discovery/android_tv_discovery.dart`)
-using `package:multicast_dns`. De-duplicates by resolved host, has an
-explicit start/stop lifecycle, and returns whatever it found rather than
-throwing on a partial scan.
+is an interface with two backends, chosen by `AndroidTvProvider`:
+
+- **Android (and other non-iOS)**: `MdnsAndroidTvDiscovery`, raw mDNS via
+  `package:multicast_dns` 0.3.3+1 (PTR -> SRV -> A).
+- **iOS**: `NativeBonjourAndroidTvDiscovery`, a MethodChannel to
+  `ios/Runner/AndroidTvBonjourDiscovery.swift` (`NWBrowser` browse +
+  `NetService` resolve). On a real iPhone, `MDnsClient.start()` failed in
+  `RawDatagramSocket.joinMulticast` with a bare `OSError` (not a
+  `SocketException`), which escaped `discover()` and was silently turned
+  into "no TVs" by `TvProviderRegistry.discoverAll`. Beyond that bug, iOS
+  only allows raw multicast sockets (UDP 5353) for apps holding Apple's
+  managed `com.apple.developer.networking.multicast` entitlement (see
+  Apple TN3179, "Understanding local network privacy"); the system
+  Bonjour APIs need only `NSLocalNetworkUsageDescription` +
+  `NSBonjourServices` (`_androidtvremote2._tcp`), both in `Info.plist`.
+  So the entitlement is deliberately **not** requested.
+
+Both de-duplicate by the stable advertised hostname (not the DHCP IP),
+are bounded by one scan timeout, never throw, release their sockets/
+browser, and always log `started` ... `completed count=N`, with a
+`resolve_failed stage=... reason=...` line for every failure
+(`socket_bind_failed`, `permission_denied_or_restricted`,
+`bonjour_service_missing`, `scan_timeout`, `ptr_empty`, `srv_failed`,
+`ip_failed`, `start_failed`).
 
 **Needs physical-TV validation**: whether real Android TV/Google TV
 devices reliably advertise this service on typical home routers (some
@@ -180,7 +201,7 @@ forgets the device. See `docs/architecture/provider-system.md`.
 
 | Area | Status |
 |---|---|
-| mDNS discovery parsing, de-duplication | Implemented, not device-tested |
+| Discovery (mDNS on Android, native Bonjour on iOS) | Implemented and unit-tested (fake querier / mocked channel); iOS native bridge not yet run on a device |
 | Certificate generation, PEM round-trip | Implemented and unit-tested |
 | Pairing secret hash algorithm | Implemented and unit-tested (self-consistent) |
 | Pairing handshake message sequence | Implemented and unit-tested (fake transport) |

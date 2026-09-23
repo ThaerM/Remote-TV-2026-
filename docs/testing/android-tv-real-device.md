@@ -22,9 +22,13 @@ feature, and repeat it after any change to
 
 ## What still needs a real device
 
-- Whether the mDNS discovery actually finds a real Android TV / Google TV
-  on the LAN (`AndroidTvDiscovery` has no automated test - mDNS needs a
-  real responder).
+- Whether discovery actually finds a real Android TV / Google TV on the
+  LAN - the protocol logic is unit-tested against fakes, but only a real
+  responder proves it. On iOS this goes through the native Bonjour bridge
+  (look for `started backend=native_bonjour` in the logs); on Android
+  through raw mDNS (`started backend=mdns`). Every scan must end with
+  `completed count=N`; if it's 0, the preceding `resolve_failed ...
+  reason=...` line says why.
 - Whether the TLS handshake against a *real* Android TV Remote service
   succeeds (self-signed cert acceptance, `onBadCertificate` behavior).
 - Whether the pairing PIN shown on a real TV is genuinely 6 hex digits

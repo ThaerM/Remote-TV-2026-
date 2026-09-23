@@ -10,7 +10,14 @@ import UIKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  private var androidTvBonjourDiscovery: AndroidTvBonjourDiscovery?
+
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let registrar: FlutterPluginRegistrar? = engineBridge.pluginRegistry.registrar(
+      forPlugin: "AndroidTvBonjourDiscovery")
+    if let registrar = registrar {
+      androidTvBonjourDiscovery = AndroidTvBonjourDiscovery(messenger: registrar.messenger())
+    }
   }
 }
