@@ -12,6 +12,7 @@ class SettingsState {
     this.keepScreenAwake = true,
     this.commandRepeatEnabled = true,
     this.developerModeEnabled = false,
+    this.theaterModeEnabled = false,
   });
 
   final ThemeMode themeMode;
@@ -21,6 +22,11 @@ class SettingsState {
   final bool commandRepeatEnabled;
   final bool developerModeEnabled;
 
+  /// Reduces the Remote screen's decorative glow/ring effects and
+  /// deepens surfaces for low-light use - see docs/design/design-system.md
+  /// ("Theater mode"). Does not touch system brightness.
+  final bool theaterModeEnabled;
+
   SettingsState copyWith({
     ThemeMode? themeMode,
     RemoteNavigationStyle? navigationStyle,
@@ -28,6 +34,7 @@ class SettingsState {
     bool? keepScreenAwake,
     bool? commandRepeatEnabled,
     bool? developerModeEnabled,
+    bool? theaterModeEnabled,
   }) {
     return SettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -37,6 +44,7 @@ class SettingsState {
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       commandRepeatEnabled: commandRepeatEnabled ?? this.commandRepeatEnabled,
       developerModeEnabled: developerModeEnabled ?? this.developerModeEnabled,
+      theaterModeEnabled: theaterModeEnabled ?? this.theaterModeEnabled,
     );
   }
 }
@@ -65,6 +73,9 @@ class SettingsController extends StateNotifier<SettingsState> {
 
   void setDeveloperModeEnabled(bool enabled) =>
       state = state.copyWith(developerModeEnabled: enabled);
+
+  void setTheaterModeEnabled(bool enabled) =>
+      state = state.copyWith(theaterModeEnabled: enabled);
 }
 
 final settingsControllerProvider =

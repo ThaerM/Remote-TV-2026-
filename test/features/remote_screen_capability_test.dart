@@ -60,6 +60,8 @@ void main() {
     testWidgets('shows volume, keyboard and voice when supported', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         _wrap(
           _connectedState(
@@ -75,9 +77,13 @@ void main() {
       );
 
       expect(find.text('Volume'), findsOneWidget);
-      expect(find.text('Mute'), findsOneWidget);
+      // Mute is an icon-only control inside the volume rocker; its label
+      // is accessible (Semantics), not printed on-screen.
+      expect(find.bySemanticsLabel('Mute'), findsOneWidget);
       expect(find.text('Keyboard'), findsOneWidget);
       expect(find.text('Voice'), findsOneWidget);
+
+      semantics.dispose();
     });
   });
 }
