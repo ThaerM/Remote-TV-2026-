@@ -63,7 +63,7 @@ void main() {
 
       final providers = selectRegisteredProviders(
         enableDemoDevices: false,
-        androidTvProvider: real,
+        realProviders: [real],
         fakeTvProvider: fake,
       );
 
@@ -79,7 +79,7 @@ void main() {
 
       final providers = selectRegisteredProviders(
         enableDemoDevices: true,
-        androidTvProvider: real,
+        realProviders: [real],
         fakeTvProvider: fake,
       );
 
@@ -99,7 +99,7 @@ void main() {
         final registry = TvProviderRegistry(
           selectRegisteredProviders(
             enableDemoDevices: false,
-            androidTvProvider: real,
+            realProviders: [real],
             fakeTvProvider: fake,
           ),
         );
@@ -119,7 +119,7 @@ void main() {
         final registry = TvProviderRegistry(
           selectRegisteredProviders(
             enableDemoDevices: true,
-            androidTvProvider: real,
+            realProviders: [real],
             fakeTvProvider: fake,
           ),
         );
@@ -144,7 +144,7 @@ void main() {
       final registry = TvProviderRegistry(
         selectRegisteredProviders(
           enableDemoDevices: false,
-          androidTvProvider: real,
+          realProviders: [real],
           fakeTvProvider: fake,
         ),
       );
@@ -165,7 +165,7 @@ void main() {
         final registry = TvProviderRegistry(
           selectRegisteredProviders(
             enableDemoDevices: true,
-            androidTvProvider: real,
+            realProviders: [real],
             fakeTvProvider: fake,
           ),
         );

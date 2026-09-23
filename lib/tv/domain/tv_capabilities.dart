@@ -1,3 +1,5 @@
+import 'tv_command.dart';
+
 /// Declares what a specific connected [TvDevice] can actually do.
 ///
 /// The remote UI is built from this, not from `platform`. Two devices on the
@@ -23,6 +25,7 @@ class TvCapabilities {
     this.screenMirroring = false,
     this.wakeOnLan = false,
     this.appInstall = false,
+    this.unsupportedKeys = const {},
   });
 
   /// No capabilities enabled. Useful as a safe default while a device is
@@ -47,6 +50,14 @@ class TvCapabilities {
   final bool wakeOnLan;
   final bool appInstall;
 
+  /// Individual keys this device lacks even though their group flag is on -
+  /// e.g. a Roku has [mediaControls] but no previous/next/stop keys. The UI
+  /// hides a button when [allows] is false for its key, so a group flag
+  /// never forces a control the device can't honor.
+  final Set<TvCommandKey> unsupportedKeys;
+
+  bool allows(TvCommandKey key) => !unsupportedKeys.contains(key);
+
   TvCapabilities copyWith({
     bool? power,
     bool? volume,
@@ -65,6 +76,7 @@ class TvCapabilities {
     bool? screenMirroring,
     bool? wakeOnLan,
     bool? appInstall,
+    Set<TvCommandKey>? unsupportedKeys,
   }) {
     return TvCapabilities(
       power: power ?? this.power,
@@ -84,6 +96,7 @@ class TvCapabilities {
       screenMirroring: screenMirroring ?? this.screenMirroring,
       wakeOnLan: wakeOnLan ?? this.wakeOnLan,
       appInstall: appInstall ?? this.appInstall,
+      unsupportedKeys: unsupportedKeys ?? this.unsupportedKeys,
     );
   }
 
@@ -108,7 +121,9 @@ class TvCapabilities {
           casting == other.casting &&
           screenMirroring == other.screenMirroring &&
           wakeOnLan == other.wakeOnLan &&
-          appInstall == other.appInstall;
+          appInstall == other.appInstall &&
+          unsupportedKeys.length == other.unsupportedKeys.length &&
+          unsupportedKeys.containsAll(other.unsupportedKeys);
 
   @override
   int get hashCode => Object.hash(
@@ -129,5 +144,6 @@ class TvCapabilities {
     screenMirroring,
     wakeOnLan,
     appInstall,
+    Object.hashAllUnordered(unsupportedKeys),
   );
 }
