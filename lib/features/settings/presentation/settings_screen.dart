@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
+import '../../../core/design/widgets/section_header.dart';
+import '../../../tv/application/tv_session_controller.dart';
 import '../application/settings_controller.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -12,12 +14,32 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsControllerProvider);
     final notifier = ref.read(settingsControllerProvider.notifier);
+    final session = ref.watch(tvSessionControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
-          const _SectionHeader('Appearance'),
+          const SectionHeader('Current TV'),
+          if (session.selectedDevice != null)
+            ListTile(
+              leading: const Icon(Icons.tv_rounded),
+              title: Text(session.selectedDevice!.name),
+              subtitle: Text(
+                session.isConnected ? 'Connected' : 'Not connected',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push(AppRoutes.devices),
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.tv_off_rounded),
+              title: const Text('No TV connected'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go(AppRoutes.discovery),
+            ),
+          const Divider(),
+          const SectionHeader('Appearance'),
           RadioGroup<ThemeMode>(
             groupValue: settings.themeMode,
             onChanged: (mode) => notifier.setThemeMode(mode!),
@@ -39,7 +61,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const Divider(),
-          const _SectionHeader('Remote'),
+          const SectionHeader('Remote'),
           ListTile(
             leading: const Icon(Icons.gamepad_outlined),
             title: const Text('Remote layout'),
@@ -52,8 +74,25 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push(AppRoutes.remoteBehaviorSettings),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.nightlight_round),
+            title: const Text('Theater mode'),
+            subtitle: const Text(
+              'Dims decorative effects on the Remote screen',
+            ),
+            value: settings.theaterModeEnabled,
+            onChanged: notifier.setTheaterModeEnabled,
+          ),
           const Divider(),
-          const _SectionHeader('Advanced'),
+          const SectionHeader('Devices'),
+          ListTile(
+            leading: const Icon(Icons.devices_other_rounded),
+            title: const Text('Connected & saved devices'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push(AppRoutes.devices),
+          ),
+          const Divider(),
+          const SectionHeader('Advanced'),
           ListTile(
             leading: const Icon(Icons.bug_report_outlined),
             title: const Text('Diagnostics'),
@@ -70,31 +109,29 @@ class SettingsScreen extends ConsumerWidget {
             onChanged: notifier.setDeveloperModeEnabled,
           ),
           const Divider(),
-          const _SectionHeader('About'),
+          const SectionHeader('Application'),
+          const ListTile(
+            leading: Icon(Icons.help_outline_rounded),
+            title: Text('Help & Support'),
+          ),
+          const ListTile(
+            leading: Icon(Icons.feedback_outlined),
+            title: Text('Feedback'),
+          ),
           const ListTile(
             leading: Icon(Icons.info_outline_rounded),
-            title: Text('Remote TV 2026'),
-            subtitle: Text('Foundation build · uses demo TVs only'),
+            title: Text('About'),
+            subtitle: Text('Remote TV 2026 · Phase 1 build'),
+          ),
+          const ListTile(
+            leading: Icon(Icons.privacy_tip_outlined),
+            title: Text('Privacy'),
+          ),
+          const ListTile(
+            leading: Icon(Icons.gavel_outlined),
+            title: Text('Legal'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.bodySmall
-            ?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }

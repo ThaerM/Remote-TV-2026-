@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
 import '../../../core/design/app_spacing.dart';
+import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../application/paired_android_tv_controller.dart';
 
@@ -25,8 +26,7 @@ class DevicesScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          Text('Connected', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
+          const SectionHeader('Connected'),
           if (session.isConnected && session.selectedDevice != null)
             Card(
               child: ListTile(
@@ -51,15 +51,14 @@ class DevicesScreen extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Paired Android TVs',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.sm),
+          const SectionHeader('Paired Android TVs'),
           pairedDevices.when(
             data: (devices) => devices.isEmpty
                 ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                     child: Text('No Android TVs paired yet.'),
                   )
                 : Column(

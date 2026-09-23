@@ -2,16 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
+import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 
 /// First screen of the first-run journey: explains the local-network
 /// requirement before asking for any permission or starting a scan.
 /// See docs/product/screen-inventory.md for the full flow.
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _glow.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.of(context).disableAnimations;
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -20,10 +40,33 @@ class WelcomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              Icon(
-                Icons.settings_remote_rounded,
-                size: 72,
-                color: Theme.of(context).colorScheme.primary,
+              Center(
+                child: AnimatedBuilder(
+                  animation: _glow,
+                  builder: (context, child) {
+                    final t = reducedMotion ? 0.5 : _glow.value;
+                    return Container(
+                      width: 140,
+                      height: 140,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppColors.glow.withValues(alpha: 0.10 + t * 0.10),
+                            AppColors.glow.withValues(alpha: 0.0),
+                          ],
+                        ),
+                      ),
+                      child: child,
+                    );
+                  },
+                  child: Icon(
+                    Icons.settings_remote_rounded,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(

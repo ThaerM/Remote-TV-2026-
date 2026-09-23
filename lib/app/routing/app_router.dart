@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/apps/presentation/apps_screen.dart';
 import '../../features/casting/presentation/cast_screen.dart';
 import '../../features/devices/presentation/devices_screen.dart';
 import '../../features/discovery/presentation/discovery_screen.dart';
 import '../../features/onboarding/presentation/welcome_screen.dart';
+import '../../features/pairing/presentation/connected_success_screen.dart';
 import '../../features/pairing/presentation/pairing_screen.dart';
 import '../../features/remote/presentation/remote_screen.dart';
 import '../../features/settings/presentation/remote_behavior_settings_screen.dart';
@@ -17,10 +19,12 @@ abstract final class AppRoutes {
   static const welcome = '/welcome';
   static const discovery = '/discovery';
   static const pairing = '/pairing';
+  static const connectedSuccess = '/pairing/connected';
   static const remote = '/remote';
   static const cast = '/cast';
   static const devices = '/devices';
   static const settings = '/settings';
+  static const apps = '/apps';
   static const remoteLayoutSettings = '/settings/remote-layout';
   static const remoteBehaviorSettings = '/settings/remote-behavior';
   static const diagnostics = '/settings/diagnostics';
@@ -41,6 +45,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.pairing,
         builder: (context, state) => const PairingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.connectedSuccess,
+        builder: (context, state) => const ConnectedSuccessScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.apps,
+        builder: (context, state) => const AppsScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),

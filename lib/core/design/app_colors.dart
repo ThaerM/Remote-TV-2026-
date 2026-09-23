@@ -31,5 +31,13 @@ class AppColors {
   static const Color danger = Color(0xFFE5484D);
   static const Color connected = Color(0xFF3DDC97);
   static const Color connecting = Color(0xFFF5A623);
+  static const Color reconnecting = Color(0xFF5B8CFF);
   static const Color disconnected = Color(0xFF6B7078);
+
+  /// Ambient/ring-glow accent used behind the Welcome mark, the
+  /// discovery radar, and connection rings - a soft cyan-blue rather
+  /// than the brand green, so "searching" and "connected" read as
+  /// visually distinct states. Always used at low alpha (see
+  /// `AppMotion` callers) - never a solid fill.
+  static const Color glow = Color(0xFF4FD1FF);
 }

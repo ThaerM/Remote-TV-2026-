@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
+import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
+import '../../../core/design/widgets/animated_connection_ring.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
+import '../../settings/application/settings_controller.dart';
+import 'widgets/pairing_code_input.dart';
 
 /// Handles both pairing flows exposed by [TvPairingRequest]: a PIN the user
 /// types in, or a prompt they must confirm on the TV itself.
@@ -18,6 +23,8 @@ class PairingScreen extends ConsumerStatefulWidget {
 
 class _PairingScreenState extends ConsumerState<PairingScreen> {
   final _codeController = TextEditingController();
+  final _codeInputKey = GlobalKey<PairingCodeInputState>();
+  String? _lastShownError;
 
   @override
   void dispose() {
@@ -28,10 +35,25 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(tvSessionControllerProvider);
+    final hapticsEnabled = ref.watch(
+      settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
+    );
 
     ref.listen(tvSessionControllerProvider, (previous, next) {
       if (next.isConnected) {
-        context.go(AppRoutes.remote);
+        context.go(AppRoutes.connectedSuccess);
+        return;
+      }
+      // A fresh, non-empty error while still awaiting a PIN means the
+      // code we just submitted was rejected - play the error feedback
+      // once per distinct error, not on every rebuild.
+      if (next.pairingRequest is TvPinPairingRequest &&
+          next.lastError != null &&
+          next.lastError != _lastShownError) {
+        _lastShownError = next.lastError;
+        _codeController.clear();
+        _codeInputKey.currentState?.shake();
+        if (hapticsEnabled) HapticFeedback.mediumImpact();
       }
     });
 
@@ -46,21 +68,25 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (pairingRequest is TvPinPairingRequest) ...[
-              const Icon(Icons.pin_rounded, size: 48),
-              const SizedBox(height: AppSpacing.md),
+              const AnimatedConnectionRing(
+                active: false,
+                color: AppColors.glow,
+                child: Icon(Icons.pin_rounded, size: 40),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               Text(
-                'Enter the ${pairingRequest.expectedLength}-digit code shown on your TV',
+                'Enter the code shown on your television.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: AppSpacing.lg),
-              TextField(
+              PairingCodeInput(
+                key: _codeInputKey,
+                length: pairingRequest.expectedLength,
                 controller: _codeController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: pairingRequest.expectedLength,
-                style: const TextStyle(fontSize: 28, letterSpacing: 8),
-                decoration: const InputDecoration(counterText: ''),
+                onSubmitted: (code) => ref
+                    .read(tvSessionControllerProvider.notifier)
+                    .submitPairingCode(code),
               ),
               const SizedBox(height: AppSpacing.md),
               if (session.lastError != null)
@@ -73,17 +99,32 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                     ),
                   ),
                 ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => ref
-                      .read(tvSessionControllerProvider.notifier)
-                      .submitPairingCode(_codeController.text),
-                  child: const Text('Confirm'),
+              TextButton(
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  showDragHandle: true,
+                  builder: (context) => const Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      AppSpacing.xl,
+                    ),
+                    child: Text(
+                      'The code appears on your TV screen once you select this '
+                      'device. If you don\'t see it, make sure the TV is awake '
+                      'and try again from the previous screen.',
+                    ),
+                  ),
                 ),
+                child: const Text('Where do I find the code?'),
               ),
             ] else if (pairingRequest is TvConfirmOnDevicePairingRequest) ...[
-              const CircularProgressIndicator(),
+              const AnimatedConnectionRing(
+                active: true,
+                color: AppColors.glow,
+                child: Icon(Icons.tv_rounded, size: 40),
+              ),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'Confirm the pairing request on your TV screen',
@@ -91,9 +132,16 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ] else ...[
-              const CircularProgressIndicator(),
+              const AnimatedConnectionRing(
+                active: true,
+                color: AppColors.glow,
+                child: Icon(Icons.tv_rounded, size: 40),
+              ),
               const SizedBox(height: AppSpacing.md),
-              const Text('Connecting…'),
+              Text(
+                'Connecting…',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ],
           ],
         ),
