@@ -6,8 +6,11 @@
    requirement before asking for anything.
 2. **Discovery** (`DiscoveryScreen`) - scans every registered provider;
    shows a radar scanning state (`DiscoveryRadar`), a device list with
-   staggered card entrance, or an empty state with rescan/troubleshooting
-   guidance.
+   staggered card entrance, or an empty state whose wording comes from the
+   scan's `TvDiscoveryIssue` (local network denied, not on Wi-Fi, search
+   restricted, timed out, failed, or simply none found). Both the list and
+   the empty state offer **Add TV by IP address** (`AddTvByAddressSheet`),
+   which asks every provider to probe the address.
 3. **Pairing** (`PairingScreen`) - handles both `TvPinPairingRequest`
    (segmented `PairingCodeInput`, shakes on a rejected code) and
    `TvConfirmOnDevicePairingRequest` (user confirms on the TV) via the
@@ -66,7 +69,7 @@ competing for a tab slot is clearly justified.
 ## Deferred to later phases
 
 Saved TVs' per-device layout/shortcut preferences, connection history,
-app favorites/reordering, manual IP entry, Wake-on-LAN toggle,
+app favorites/reordering, Wake-on-LAN toggle,
 macros/scenes editor, and real backing content for the Application
 section's Help/Feedback/Privacy/Legal tiles. None of these were skipped
 by oversight - they either need persistence work beyond this phase's

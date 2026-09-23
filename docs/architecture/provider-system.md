@@ -7,7 +7,8 @@ Every TV ecosystem implements `TvProvider` (`lib/tv/domain/tv_provider.dart`):
 ```dart
 abstract interface class TvProvider {
   TvPlatform get platform;
-  Future<List<TvDevice>> discover();
+  Future<TvDiscoveryOutcome> discover();
+  Future<TvDevice?> probeHost(String host);
   Future<TvPairingRequest> connect(TvDevice device);
   Future<void> submitPairingCode(String code);
   Future<void> disconnect();
@@ -21,6 +22,23 @@ abstract interface class TvProvider {
 A provider is a private implementation detail: it owns whatever transport
 it needs (mDNS client, websocket, vendor SDK bridge, HTTP client) and
 translates that transport's errors into the `TvException` hierarchy.
+
+### Discovery contract
+
+`discover()` is bounded, never throws, and returns a `TvDiscoveryOutcome`:
+the devices found plus any `TvDiscoveryIssue` that may explain missing ones
+(`localNetworkDenied`, `networkUnavailable`, `multicastRestricted`,
+`timedOut`, `failed`). Finding nothing on a healthy network is not an
+issue. The Discovery screen turns the most actionable issue
+(`TvDiscoveryOutcome.primaryIssue`) into plain-language guidance
+(`discovery_issue_copy.dart`); technical detail stays in the logs.
+
+`probeHost(host)` answers "does a device this provider controls respond at
+this address?" for the "Add TV by IP address" flow - TVs on another
+subnet, behind a router that blocks multicast, or on iOS where SSDP-based
+discovery needs Apple's restricted multicast entitlement. It must be
+bounded, must not trigger anything visible on the TV, and never throws.
+Devices added this way stay listed across rescans.
 
 ## Capability-driven design
 
@@ -65,7 +83,9 @@ pairing needs zero UI changes.
 
 `TvProviderRegistry` (`lib/tv/providers/registry/`) holds every
 registered provider keyed by `TvPlatform` and can `discoverAll()` across
-all of them in parallel, tolerating individual provider failures.
+all of them in parallel. A provider that throws anyway is logged and
+reported as `TvDiscoveryIssue.failed` - never silently turned into "no
+TVs" (that silent `catchError` is what hid the iOS `OSError` fixed in #7).
 `TvSessionController` is the only consumer that should read from it.
 
 Because the registry is keyed by `TvPlatform`, there is no ambiguity

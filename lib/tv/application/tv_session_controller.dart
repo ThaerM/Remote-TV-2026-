@@ -12,6 +12,8 @@ class TvSessionState {
   const TvSessionState({
     this.discoveredDevices = const [],
     this.isDiscovering = false,
+    this.discoveryIssue,
+    this.isProbing = false,
     this.selectedDevice,
     this.pairingRequest,
     this.connectionState = TvConnectionState.disconnected,
@@ -22,6 +24,12 @@ class TvSessionState {
 
   final List<TvDevice> discoveredDevices;
   final bool isDiscovering;
+
+  /// The most actionable reason the last scan may have missed TVs.
+  final TvDiscoveryIssue? discoveryIssue;
+
+  /// A manual "add by address" probe is in flight.
+  final bool isProbing;
   final TvDevice? selectedDevice;
   final TvPairingRequest? pairingRequest;
   final TvConnectionState connectionState;
@@ -34,6 +42,9 @@ class TvSessionState {
   TvSessionState copyWith({
     List<TvDevice>? discoveredDevices,
     bool? isDiscovering,
+    TvDiscoveryIssue? discoveryIssue,
+    bool clearDiscoveryIssue = false,
+    bool? isProbing,
     TvDevice? selectedDevice,
     TvPairingRequest? pairingRequest,
     bool clearPairingRequest = false,
@@ -46,6 +57,10 @@ class TvSessionState {
     return TvSessionState(
       discoveredDevices: discoveredDevices ?? this.discoveredDevices,
       isDiscovering: isDiscovering ?? this.isDiscovering,
+      discoveryIssue: clearDiscoveryIssue
+          ? null
+          : (discoveryIssue ?? this.discoveryIssue),
+      isProbing: isProbing ?? this.isProbing,
       selectedDevice: selectedDevice ?? this.selectedDevice,
       pairingRequest: clearPairingRequest
           ? null
@@ -72,17 +87,68 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   TvProvider? _activeProvider;
 
   Future<void> discover() async {
-    state = state.copyWith(isDiscovering: true, clearError: true);
+    state = state.copyWith(
+      isDiscovering: true,
+      clearError: true,
+      clearDiscoveryIssue: true,
+    );
     try {
       final registry = _ref.read(tvProviderRegistryProvider);
-      final devices = await registry.discoverAll();
-      state = state.copyWith(discoveredDevices: devices, isDiscovering: false);
+      final outcome = await registry.discoverAll();
+      state = state.copyWith(
+        discoveredDevices: _withManualDevices(outcome.devices),
+        isDiscovering: false,
+        discoveryIssue: outcome.primaryIssue,
+      );
     } catch (error) {
-      _logger.warning('Discovery failed: $error');
+      _logger.warning('[TV][DISCOVERY] scan_failed type=${error.runtimeType}');
       state = state.copyWith(
         isDiscovering: false,
-        lastError: 'Could not scan for devices.',
+        discoveryIssue: TvDiscoveryIssue.failed,
       );
+    }
+  }
+
+  final List<TvDevice> _manualDevices = [];
+
+  /// Keeps devices the user added by address visible across rescans, since
+  /// discovery by definition can't see them.
+  List<TvDevice> _withManualDevices(List<TvDevice> discovered) {
+    final ids = {for (final d in discovered) d.id};
+    return [
+      ...discovered,
+      for (final d in _manualDevices)
+        if (!ids.contains(d.id)) d,
+    ];
+  }
+
+  /// Asks every provider whether a TV answers at [host]. Returns how many
+  /// devices were added; 0 means nothing recognizable answered.
+  Future<int> addDeviceByAddress(String host) async {
+    final trimmed = host.trim();
+    if (trimmed.isEmpty) return 0;
+    state = state.copyWith(isProbing: true);
+    try {
+      final found = await _ref
+          .read(tvProviderRegistryProvider)
+          .probeAll(trimmed);
+      for (final device in found) {
+        _manualDevices.removeWhere((d) => d.id == device.id);
+        _manualDevices.add(device);
+      }
+      state = state.copyWith(
+        discoveredDevices: _withManualDevices(
+          state.discoveredDevices
+              .where((d) => !found.any((f) => f.id == d.id))
+              .toList(),
+        ),
+        isProbing: false,
+      );
+      return found.length;
+    } catch (error) {
+      _logger.warning('[TV][DISCOVERY] probe_failed type=${error.runtimeType}');
+      state = state.copyWith(isProbing: false);
+      return 0;
     }
   }
 

@@ -32,7 +32,17 @@ class AndroidTvDiscoveryResult {
 /// `NativeBonjourAndroidTvDiscovery` (iOS) asks the system Bonjour stack,
 /// because iOS restricts raw multicast sockets in third-party apps.
 abstract interface class AndroidTvDiscovery {
-  Future<List<AndroidTvDiscoveryResult>> discover({Duration timeout});
+  Future<AndroidTvDiscoveryScan> discover({Duration timeout});
+}
+
+/// One scan's answers, plus the [TvDiscoveryIssue] (if any) that may
+/// explain missing devices. Finding nothing on a healthy network is not an
+/// issue - it's just an empty [results].
+class AndroidTvDiscoveryScan {
+  const AndroidTvDiscoveryScan(this.results, {this.issue});
+
+  final List<AndroidTvDiscoveryResult> results;
+  final TvDiscoveryIssue? issue;
 }
 
 TvDevice discoveryResultToDevice(AndroidTvDiscoveryResult result) {

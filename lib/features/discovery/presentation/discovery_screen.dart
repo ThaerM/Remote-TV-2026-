@@ -7,6 +7,8 @@ import '../../../core/design/app_spacing.dart';
 import '../../../core/design/widgets/discovery_radar.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
+import 'discovery_issue_copy.dart';
+import 'widgets/add_tv_by_address_sheet.dart';
 import 'widgets/tv_device_card.dart';
 
 /// Scans every registered [TvProvider] and lists what was found. Handles
@@ -38,8 +40,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ? const _ScanningState()
           : session.discoveredDevices.isEmpty
           ? _EmptyState(
+              copy: DiscoveryIssueCopy.forIssue(session.discoveryIssue),
               onRescan: () =>
                   ref.read(tvSessionControllerProvider.notifier).discover(),
+              onAddByAddress: () => AddTvByAddressSheet.show(context),
             )
           : _DeviceList(devices: session.discoveredDevices),
     );
@@ -76,9 +80,16 @@ class _DeviceList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: devices.length,
+      itemCount: devices.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (context, index) {
+        if (index == devices.length) {
+          return TextButton.icon(
+            onPressed: () => AddTvByAddressSheet.show(context),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text("Don't see your TV? Add it by IP address"),
+          );
+        }
         final device = devices[index];
         return _StaggeredEntrance(
           index: index,
@@ -154,39 +165,47 @@ class _StaggeredEntranceState extends State<_StaggeredEntrance>
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onRescan});
+  const _EmptyState({
+    required this.copy,
+    required this.onRescan,
+    required this.onAddByAddress,
+  });
 
+  final DiscoveryIssueCopy copy;
   final VoidCallback onRescan;
+  final VoidCallback onAddByAddress;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.wifi_find_rounded,
+              copy.icon,
               size: 56,
               color: Theme.of(context).colorScheme.secondary,
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'No TVs found',
+              copy.title,
               style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            const Text(
-              'Make sure your TV is powered on and your phone and TV are on the '
-              'same Wi-Fi network.',
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(copy.body, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: onRescan,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Rescan'),
+              label: const Text('Scan again'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextButton(
+              onPressed: onAddByAddress,
+              child: const Text('Add TV by IP address'),
             ),
           ],
         ),

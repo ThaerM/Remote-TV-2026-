@@ -17,7 +17,7 @@ void main() {
       final fake = FakeTvProvider();
       final registry = TvProviderRegistry([fake]);
 
-      final devices = await registry.discoverAll();
+      final devices = (await registry.discoverAll()).devices;
 
       expect(devices, isNotEmpty);
       expect(devices.every((d) => d.platform == TvPlatform.fake), isTrue);

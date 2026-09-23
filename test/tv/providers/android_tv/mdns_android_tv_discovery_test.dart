@@ -124,9 +124,9 @@ void main() {
         final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
         final stopwatch = Stopwatch()..start();
-        final results = await discovery.discover(
+        final results = (await discovery.discover(
           timeout: const Duration(milliseconds: 300),
-        );
+        )).results;
         stopwatch.stop();
 
         expect(results, isEmpty);
@@ -143,7 +143,7 @@ void main() {
         ..responses[ipKey] = [ipRecord()];
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-      final results = await discovery.discover();
+      final results = (await discovery.discover()).results;
 
       expect(results, hasLength(1));
       expect(results.single.name, 'Family room TV');
@@ -160,9 +160,9 @@ void main() {
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
       final stopwatch = Stopwatch()..start();
-      final results = await discovery.discover(
+      final results = (await discovery.discover(
         timeout: const Duration(milliseconds: 400),
-      );
+      )).results;
       stopwatch.stop();
 
       expect(results, hasLength(1));
@@ -175,7 +175,7 @@ void main() {
       // No SRV response configured - lookup resolves to an empty stream.
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-      final results = await discovery.discover();
+      final results = (await discovery.discover()).results;
 
       expect(results, isEmpty);
       expect(querier.stopped, isTrue);
@@ -188,7 +188,7 @@ void main() {
         ..responses[ipKey] = [ipRecord()];
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-      final results = await discovery.discover();
+      final results = (await discovery.discover()).results;
 
       expect(results, hasLength(1));
     });
@@ -198,7 +198,7 @@ void main() {
         ..startError = const SocketException('no network');
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-      final results = await discovery.discover();
+      final results = (await discovery.discover()).results;
 
       expect(results, isEmpty);
       expect(querier.stopped, isTrue);
@@ -212,7 +212,7 @@ void main() {
       final querier = FakeMdnsQuerier();
       final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-      final results = await discovery.discover();
+      final results = (await discovery.discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -250,7 +250,7 @@ void main() {
         final querier = FakeMdnsQuerier()..startError = error;
         final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
 
-        final results = await discovery.discover();
+        final results = (await discovery.discover()).results;
 
         expect(results, isEmpty);
         expect(querier.stopped, isTrue);
@@ -296,7 +296,7 @@ void main() {
           querierFactory: () => throw StateError('no client'),
         );
 
-        final results = await discovery.discover();
+        final results = (await discovery.discover()).results;
 
         expect(results, isEmpty);
         expect(logged('scan_failed type=StateError'), isTrue);

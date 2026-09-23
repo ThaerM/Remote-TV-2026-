@@ -3,6 +3,7 @@ import 'tv_capabilities.dart';
 import 'tv_command.dart';
 import 'tv_connection_state.dart';
 import 'tv_device.dart';
+import 'tv_discovery.dart';
 import 'tv_pairing.dart';
 import 'tv_platform.dart';
 
@@ -17,9 +18,17 @@ abstract interface class TvProvider {
   TvPlatform get platform;
 
   /// Search the local network for devices this provider can control.
-  /// Implementations should apply their own reasonable timeout and return
-  /// whatever was found rather than throwing on a partial scan.
-  Future<List<TvDevice>> discover();
+  /// Implementations apply their own bounded timeout, never throw, and
+  /// report anything that may explain missing devices as a
+  /// [TvDiscoveryIssue] rather than silently returning nothing.
+  Future<TvDiscoveryOutcome> discover();
+
+  /// Checks whether a device this provider can control answers at [host]
+  /// (an IP address or hostname the user typed), for TVs that discovery
+  /// can't see - another subnet, a router that blocks multicast, or a
+  /// platform that restricts multicast. Returns `null` if nothing
+  /// recognizable answers. Must be bounded and never throw.
+  Future<TvDevice?> probeHost(String host);
 
   /// Begin connecting to [device]. If pairing is required, the returned
   /// value describes it and [connectionState] will emit
