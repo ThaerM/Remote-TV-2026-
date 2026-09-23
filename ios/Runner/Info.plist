@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Required for Android TV discovery (mDNS) and pairing/remote-control
+	     sockets on the local network - see docs/architecture/provider-system.md. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Remote TV 2026 looks for Android TV and Google TV devices on your Wi-Fi network so you can pair with and control them.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_androidtvremote2._tcp</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

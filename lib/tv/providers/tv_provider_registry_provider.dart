@@ -1,19 +1,76 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/app_config.dart';
+import '../../core/storage/flutter_secure_credential_store.dart';
+import '../../core/storage/secure_credential_store.dart';
+import '../domain/tv_domain.dart';
+import 'android_tv/android_tv_provider.dart';
+import 'android_tv/storage/android_tv_paired_device_store.dart';
 import 'fake/fake_tv_provider.dart';
 import 'registry/tv_provider_registry.dart';
 
-/// Long-lived [FakeTvProvider] instance backing the current foundation.
+/// Long-lived [FakeTvProvider] instance backing the demo experience.
 ///
-/// Real providers (Android TV, Google Cast, Samsung, ...) will be added
-/// here one at a time in later phases - see
-/// docs/product/feature-roadmap.md.
+/// Only registered into [tvProviderRegistryProvider] when
+/// [kEnableDemoTvDevices] is set - see [selectRegisteredProviders]. The
+/// provider itself is still created eagerly (it's cheap: no sockets, no
+/// real I/O) so the flag can be toggled without restructuring the
+/// provider graph.
 final fakeTvProviderProvider = Provider<FakeTvProvider>((ref) {
   final provider = FakeTvProvider();
   ref.onDispose(provider.dispose);
   return provider;
 });
 
+/// Keychain/Keystore-backed credential storage used by every real
+/// provider to persist pairing secrets - see
+/// `docs/architecture/security.md`.
+final secureCredentialStoreProvider = Provider<SecureCredentialStore>((ref) {
+  return FlutterSecureCredentialStore();
+});
+
+final androidTvPairedDeviceStoreProvider = Provider<AndroidTvPairedDeviceStore>(
+  (ref) {
+    return AndroidTvPairedDeviceStore(
+      secureStore: ref.watch(secureCredentialStoreProvider),
+    );
+  },
+);
+
+final androidTvProviderProvider = Provider<AndroidTvProvider>((ref) {
+  final provider = AndroidTvProvider(
+    store: ref.watch(androidTvPairedDeviceStoreProvider),
+  );
+  ref.onDispose(provider.dispose);
+  return provider;
+});
+
+/// Decides which [TvProvider]s get registered, given whether demo
+/// devices are enabled.
+///
+/// Pulled out as a plain function (rather than inlined in the Provider
+/// below) so the on/off behavior of [kEnableDemoTvDevices] is directly
+/// unit-testable without needing a `--dart-define` recompile - see
+/// `test/tv/providers/tv_provider_registry_provider_test.dart`.
+///
+/// Real providers (currently just [AndroidTvProvider]) are always
+/// registered. `FakeTvProvider` is opt-in only, so a normal `flutter
+/// run` against a real TV never mixes demo devices into real discovery
+/// results.
+List<TvProvider> selectRegisteredProviders({
+  required bool enableDemoDevices,
+  required TvProvider androidTvProvider,
+  required TvProvider fakeTvProvider,
+}) {
+  return [androidTvProvider, if (enableDemoDevices) fakeTvProvider];
+}
+
 final tvProviderRegistryProvider = Provider<TvProviderRegistry>((ref) {
-  return TvProviderRegistry([ref.watch(fakeTvProviderProvider)]);
+  return TvProviderRegistry(
+    selectRegisteredProviders(
+      enableDemoDevices: kEnableDemoTvDevices,
+      androidTvProvider: ref.watch(androidTvProviderProvider),
+      fakeTvProvider: ref.watch(fakeTvProviderProvider),
+    ),
+  );
 });

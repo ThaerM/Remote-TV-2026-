@@ -17,6 +17,20 @@ so log lines read like:
 [TV][CAST][GoogleCast] session started
 ```
 
+`AndroidTvProvider` is the reference implementation of this convention:
+
+```
+[TV][DISCOVERY][ANDROID_TV] started
+[TV][DISCOVERY][ANDROID_TV] found device=Living Room TV
+[TV][PAIRING][ANDROID_TV] started
+[TV][PAIRING][ANDROID_TV] completed
+[TV][CONNECTION][ANDROID_TV] connected
+[TV][CONNECTION][ANDROID_TV] configured device=Chromecast with Google TV
+[TV][CONNECTION][ANDROID_TV] reconnect_attempt=2
+[TV][CONNECTION][ANDROID_TV] closing idle connection
+[TV][COMMAND][ANDROID_TV] KEYCODE_DPAD_UP SHORT
+```
+
 In practice this means constructing a logger with a dotted name that
 encodes the concern, e.g. `AppLogger('TV.Fake')` (used by
 `FakeTvProvider`) or, for a real provider, `AppLogger('TV.Discovery.mDNS')`.

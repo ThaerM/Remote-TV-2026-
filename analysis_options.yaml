@@ -3,6 +3,7 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+    - lib/tv/providers/android_tv/protocol/generated/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

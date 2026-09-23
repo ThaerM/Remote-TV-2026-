@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed to open TCP/TLS sockets to a TV on the local network
+         (pairing and remote-control connections) and to send mDNS
+         discovery queries. See docs/architecture/provider-system.md. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!-- Required to receive mDNS multicast responses during TV discovery;
+         held only while a scan is in progress (multicast_dns acquires
+         and releases the lock internally). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <application
         android:label="remote_tv_2026"
         android:name="${applicationName}"

@@ -164,10 +164,10 @@ class FakeTvProvider implements TvProvider {
 
   @override
   Future<List<TvDevice>> discover() async {
-    _logger.info('Scanning for demo devices...');
+    _logger.info('[TV][DISCOVERY][FAKE] started');
     await Future<void>.delayed(const Duration(milliseconds: 900));
     final devices = _profiles.map((p) => p.device).toList(growable: false);
-    _logger.info('Found ${devices.length} demo device(s).');
+    _logger.info('[TV][DISCOVERY][FAKE] completed count=${devices.length}');
     return devices;
   }
 

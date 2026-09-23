@@ -14,13 +14,18 @@
 - Secure credential store abstraction (not yet used by a real provider)
 - Unit + widget tests, CI
 
-## Phase 1 - Google TV / Android TV (recommended next)
+## Phase 1 - Google TV / Android TV
 
-Real local discovery (mDNS), real pairing (Android TV Remote protocol v2,
-Kotlin/Dart implementation research needed), secure pairing key
-persistence via `SecureCredentialStore`, D-pad/Home/Back/media commands,
-volume where supported, keyboard input, reconnect on app resume. See
-`docs/research/android-google-tv.md`.
+**Implemented, pending physical-device validation.** Real mDNS
+discovery, real TLS certificate pairing, secure pairing-identity
+persistence via `SecureCredentialStore`, D-pad/Home/Back/media/volume/
+channel/numeric commands (capability-gated on what the TV negotiates),
+keyboard input, app launching via app-link deep links, and reconnect
+with exponential backoff. See `docs/research/android-google-tv.md` for
+exact scope and `docs/testing/android-tv-real-device.md` for the manual
+test pass this needs before being considered production-ready. Voice,
+Wake-on-LAN, general app install/launch by package name, and screen
+mirroring are explicitly out of scope for this phase.
 
 ## Phase 2 - Google Cast
 
