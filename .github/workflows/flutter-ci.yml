@@ -2,9 +2,12 @@ name: Flutter CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -29,3 +32,40 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  # Native code (Kotlin/Swift platform channels) is only compiled here -
+  # nothing else in the pipeline would catch a native build break.
+  build-android:
+    name: Android debug build
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+  build-ios:
+    name: iOS build (no codesign)
+    needs: validate
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build iOS app without code signing
+        run: flutter build ios --debug --no-codesign

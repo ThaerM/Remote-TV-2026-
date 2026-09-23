@@ -110,8 +110,12 @@ flutter analyze
 flutter test
 ```
 
-All four run in CI (`.github/workflows/flutter-ci.yml`) on every PR to
-`main`.
+All four run in CI (`.github/workflows/flutter-ci.yml`) on every PR, which
+then also runs `flutter build apk --debug` (Ubuntu) and
+`flutter build ios --debug --no-codesign` (macOS). Those two jobs are the
+only thing that compiles the native Kotlin/Swift platform channels
+(`ios/Runner/*.swift`, `android/app/src/main/kotlin/...`) - a change to
+native code isn't verified until they're green.
 
 `flutter run` alone registers real providers only (no demo devices).
 For UI development/demos, use
