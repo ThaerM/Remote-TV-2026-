@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/app_spacing.dart';
+import '../../../../core/design/widgets/pressable_scale.dart';
 import '../../../../tv/domain/tv_domain.dart';
+import '../../../settings/application/settings_controller.dart';
 
-/// Directional pad used when [TvCapabilities.dpad] is true. A future
-/// touchpad alternative is chosen via Settings > Remote Behavior.
+/// Directional pad used when [TvCapabilities.dpad] is true and the user's
+/// Remote Layout preference is D-pad (vs. touchpad - see
+/// `TouchpadSurface`).
 class DpadControl extends StatelessWidget {
   const DpadControl({required this.onCommand, super.key});
 
@@ -30,6 +34,7 @@ class DpadControl extends StatelessWidget {
             top: 0,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_up_rounded,
+              semanticLabel: 'Navigate Up',
               onTap: () => onCommand(TvCommandKey.dpadUp),
             ),
           ),
@@ -37,6 +42,7 @@ class DpadControl extends StatelessWidget {
             bottom: 0,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_down_rounded,
+              semanticLabel: 'Navigate Down',
               onTap: () => onCommand(TvCommandKey.dpadDown),
             ),
           ),
@@ -44,6 +50,7 @@ class DpadControl extends StatelessWidget {
             left: 0,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_left_rounded,
+              semanticLabel: 'Navigate Left',
               onTap: () => onCommand(TvCommandKey.dpadLeft),
             ),
           ),
@@ -51,6 +58,7 @@ class DpadControl extends StatelessWidget {
             right: 0,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_right_rounded,
+              semanticLabel: 'Navigate Right',
               onTap: () => onCommand(TvCommandKey.dpadRight),
             ),
           ),
@@ -58,6 +66,7 @@ class DpadControl extends StatelessWidget {
             icon: Icons.circle,
             iconSize: 14,
             isPrimary: true,
+            semanticLabel: 'Select',
             onTap: () => onCommand(TvCommandKey.select),
           ),
         ],
@@ -66,39 +75,47 @@ class DpadControl extends StatelessWidget {
   }
 }
 
-class _DpadButton extends StatelessWidget {
+class _DpadButton extends ConsumerWidget {
   const _DpadButton({
     required this.icon,
     required this.onTap,
+    required this.semanticLabel,
     this.iconSize = 28,
     this.isPrimary = false,
   });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String semanticLabel;
   final double iconSize;
   final bool isPrimary;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final size = isPrimary ? 72.0 : AppControlSize.secondaryButton;
-    return Material(
-      color: isPrimary ? theme.colorScheme.primary : Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(
-            icon,
-            size: iconSize,
-            color: isPrimary
-                ? theme.colorScheme.onPrimary
-                : theme.iconTheme.color,
-          ),
+    final hapticsEnabled = ref.watch(
+      settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
+    );
+
+    return PressableScale(
+      hapticsEnabled: hapticsEnabled,
+      semanticLabel: semanticLabel,
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: isPrimary ? theme.colorScheme.primary : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: iconSize,
+          color: isPrimary
+              ? theme.colorScheme.onPrimary
+              : theme.iconTheme.color,
         ),
       ),
     );

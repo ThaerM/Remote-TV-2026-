@@ -78,7 +78,17 @@ introduce a second state-management pattern.
 - Immutable state classes with `copyWith`, matching
   `TvSessionState`/`SettingsState`.
 - Design tokens (`lib/core/design/`) instead of literal colors/spacing/
-  radii in widget code.
+  radii in widget code. All motion durations/curves come from
+  `AppMotion` - no widget hardcodes its own timing. See
+  `docs/design/design-system.md`.
+- Press feedback goes through `PressableScale`; haptics are always
+  caller-controlled via `SettingsState.hapticFeedbackEnabled`, never
+  fired unconditionally by a component.
+- Looping/ambient animations (radar, connection rings, glows) must check
+  `MediaQuery.disableAnimations` and render a static equivalent - and
+  must never be the thing a widget test calls `pumpAndSettle()` against
+  (it hangs on a deliberately-repeating animation); pump a fixed
+  duration instead.
 - `dart format` + `flutter_lints` (`analysis_options.yaml`) - keep
   `flutter analyze` at zero issues.
 

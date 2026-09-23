@@ -1,3 +1,5 @@
+import 'package:flutter/animation.dart';
+
 /// Spacing scale in logical pixels. Use these instead of literal numbers
 /// so remote-control layouts stay consistent and easy to retune.
 class AppSpacing {
@@ -32,11 +34,35 @@ class AppControlSize {
   static const double minTouchTarget = 48;
 }
 
-/// Motion durations, kept short so button presses feel instant.
+/// Motion durations and curves, centralized so no widget hardcodes its
+/// own timing - see docs/design/design-system.md ("Motion system").
 class AppMotion {
   const AppMotion._();
 
+  /// Button/D-pad press feedback. Must stay short: remote responsiveness
+  /// (dispatching the command) is never gated on this finishing.
   static const Duration fast = Duration(milliseconds: 120);
+
+  /// Small state changes (icon swaps, list item highlight).
   static const Duration normal = Duration(milliseconds: 220);
+
+  /// Bottom sheets and panel open/close.
+  static const Duration panel = Duration(milliseconds: 260);
+
+  /// Connection-state transitions (pairing -> connected, screen
+  /// transitions between onboarding steps).
+  static const Duration connection = Duration(milliseconds: 350);
+
   static const Duration slow = Duration(milliseconds: 360);
+
+  /// Standard easing for most UI motion - decelerates into place,
+  /// avoids the bouncy/overshoot curves the design direction explicitly
+  /// asked to avoid.
+  static const Curve standard = Curves.easeOutCubic;
+
+  /// For elements entering the screen (device cards, panels).
+  static const Curve enter = Curves.easeOutCubic;
+
+  /// For elements leaving/collapsing.
+  static const Curve exit = Curves.easeInCubic;
 }
