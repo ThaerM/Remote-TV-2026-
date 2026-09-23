@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' show min, pow;
 
 import '../../../core/logging/app_logger.dart';
 import '../../domain/tv_domain.dart';
 import 'android_tv_constants.dart';
 import 'discovery/android_tv_discovery.dart';
+import 'discovery/mdns_android_tv_discovery.dart';
+import 'discovery/native_bonjour_android_tv_discovery.dart';
 import 'protocol/command_mapper.dart';
 import 'protocol/generated/remotemessage.pbenum.dart';
 import 'protocol/pairing_handshake.dart';
@@ -38,10 +41,16 @@ class AndroidTvProvider implements TvProvider {
     })?
     connect,
     AndroidTvIdentity Function()? generateIdentity,
-  }) : _discovery = discovery ?? AndroidTvDiscovery(),
+  }) : _discovery = discovery ?? _defaultDiscovery(),
        _connect = connect ?? TlsAndroidTvTransport.connect,
        _generateIdentity = generateIdentity ?? AndroidTvIdentity.generate,
        _logger = AppLogger('TV.Connection.AndroidTV');
+
+  // iOS restricts raw multicast sockets for third-party apps, so there the
+  // system Bonjour stack does discovery; everywhere else raw mDNS works.
+  static AndroidTvDiscovery _defaultDiscovery() => Platform.isIOS
+      ? NativeBonjourAndroidTvDiscovery()
+      : MdnsAndroidTvDiscovery();
 
   final AndroidTvPairedDeviceStore _store;
   final AndroidTvDiscovery _discovery;
