@@ -94,9 +94,21 @@ class AndroidTvDiscovery {
     final results = <String, AndroidTvDiscoveryResult>{};
 
     try {
+      _logger.info(
+        '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_client_start',
+      );
       final started = await _startWithDeadline(querier, deadline);
+      _logger.info(
+        '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_client_start started=$started',
+      );
       if (started) {
+        _logger.info(
+          '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_ptr_collect',
+        );
         final ptrRecords = await _collectPtrRecords(querier, deadline);
+        _logger.info(
+          '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_ptr_collect count=${ptrRecords.length}',
+        );
         final resolved = await Future.wait(
           ptrRecords.map((ptr) => _resolveInstance(querier, ptr, deadline)),
         );
@@ -118,7 +130,9 @@ class AndroidTvDiscovery {
         '[TV][DISCOVERY][ANDROID_TV] network unavailable: ${error.message}',
       );
     } finally {
+      _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_start');
       _safeStop(querier);
+      _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_done');
     }
 
     final devices = results.values.toList(growable: false);
@@ -160,6 +174,9 @@ class AndroidTvDiscovery {
     unawaited(
       querier.start().then(
         (_) {
+          _logger.info(
+            '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_future_completed',
+          );
           if (!completer.isCompleted) completer.complete(true);
         },
         onError: (Object error, StackTrace stackTrace) {
@@ -169,8 +186,14 @@ class AndroidTvDiscovery {
         },
       ),
     );
+    _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=start_future_created');
     final timer = Timer(remaining, () {
-      if (!completer.isCompleted) completer.complete(false);
+      if (!completer.isCompleted) {
+        _logger.warning(
+          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=client_start',
+        );
+        completer.complete(false);
+      }
     });
 
     try {
@@ -190,7 +213,12 @@ class AndroidTvDiscovery {
     final ptrRecords = <PtrResourceRecord>[];
     final completer = Completer<void>();
     final timer = Timer(remaining, () {
-      if (!completer.isCompleted) completer.complete();
+      if (!completer.isCompleted) {
+        _logger.warning(
+          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=ptr',
+        );
+        completer.complete();
+      }
     });
 
     final sub = querier
@@ -234,11 +262,21 @@ class AndroidTvDiscovery {
     DateTime deadline,
   ) async {
     final friendlyName = _friendlyNameFrom(ptr.domainName);
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_instance_resolve instance=$friendlyName',
+    );
 
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_srv_lookup instance=$friendlyName',
+    );
     final srv = await _collectFirst<SrvResourceRecord>(
       querier,
       ResourceRecordQuery.service(ptr.domainName),
       _boundedRemaining(deadline, _srvStageTimeout),
+      stage: 'srv',
+    );
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_srv_lookup instance=$friendlyName count=${srv == null ? 0 : 1}',
     );
     if (srv == null) {
       _logger.warning(
@@ -251,10 +289,17 @@ class AndroidTvDiscovery {
       '[TV][DISCOVERY][ANDROID_TV] srv host=$targetHost port=${srv.port}',
     );
 
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_ip_lookup host=$targetHost',
+    );
     final ipRecord = await _collectFirst<IPAddressResourceRecord>(
       querier,
       ResourceRecordQuery.addressIPv4(srv.target),
       _boundedRemaining(deadline, _ipStageTimeout),
+      stage: 'ip',
+    );
+    _logger.info(
+      '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_ip_lookup host=$targetHost count=${ipRecord == null ? 0 : 1}',
     );
     final resolvedIp = ipRecord?.address.address;
     if (resolvedIp != null) {
@@ -286,13 +331,19 @@ class AndroidTvDiscovery {
   Future<T?> _collectFirst<T extends ResourceRecord>(
     MdnsQuerier querier,
     ResourceRecordQuery query,
-    Duration timeout,
-  ) async {
+    Duration timeout, {
+    required String stage,
+  }) async {
     if (timeout <= Duration.zero) return null;
 
     final completer = Completer<T?>();
     final timer = Timer(timeout, () {
-      if (!completer.isCompleted) completer.complete(null);
+      if (!completer.isCompleted) {
+        _logger.warning(
+          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=$stage',
+        );
+        completer.complete(null);
+      }
     });
 
     final sub = querier
