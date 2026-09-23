@@ -5,9 +5,9 @@ import 'dart:math' show min, pow;
 import '../../../core/logging/app_logger.dart';
 import '../../domain/tv_domain.dart';
 import 'android_tv_constants.dart';
-import 'discovery/android_tv_discovery.dart';
-import 'discovery/mdns_android_tv_discovery.dart';
-import 'discovery/native_bonjour_android_tv_discovery.dart';
+import '../shared/service_discovery/service_discovery.dart';
+import '../shared/service_discovery/mdns_service_discovery.dart';
+import '../shared/service_discovery/native_bonjour_service_discovery.dart';
 import 'protocol/command_mapper.dart';
 import 'protocol/generated/remotemessage.pbenum.dart';
 import 'protocol/pairing_handshake.dart';
@@ -32,7 +32,7 @@ import 'transport/tls_android_tv_transport.dart';
 class AndroidTvProvider implements TvProvider {
   AndroidTvProvider({
     required this._store,
-    AndroidTvDiscovery? discovery,
+    ServiceDiscovery? discovery,
     Future<AndroidTvMessageTransport> Function({
       required String host,
       required int port,
@@ -50,9 +50,15 @@ class AndroidTvProvider implements TvProvider {
 
   // iOS restricts raw multicast sockets for third-party apps, so there the
   // system Bonjour stack does discovery; everywhere else raw mDNS works.
-  static AndroidTvDiscovery _defaultDiscovery() => Platform.isIOS
-      ? NativeBonjourAndroidTvDiscovery()
-      : MdnsAndroidTvDiscovery();
+  static ServiceDiscovery _defaultDiscovery() => Platform.isIOS
+      ? NativeBonjourServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
+        )
+      : MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
+        );
 
   static Future<bool> _tcpPortOpen(String host, int port) async {
     try {
@@ -70,7 +76,7 @@ class AndroidTvProvider implements TvProvider {
 
   final Future<bool> Function(String host, int port) _probePort;
   final AndroidTvPairedDeviceStore _store;
-  final AndroidTvDiscovery _discovery;
+  final ServiceDiscovery _discovery;
   final AndroidTvIdentity Function() _generateIdentity;
   final Future<AndroidTvMessageTransport> Function({
     required String host,
@@ -108,10 +114,17 @@ class AndroidTvProvider implements TvProvider {
   Future<TvDiscoveryOutcome> discover() async {
     final scan = await _discovery.discover();
     return TvDiscoveryOutcome(
-      devices: scan.results.map(discoveryResultToDevice).toList(),
+      devices: scan.results.map(_deviceFrom).toList(),
       issues: {?scan.issue},
     );
   }
+
+  static TvDevice _deviceFrom(ServiceDiscoveryResult result) => TvDevice(
+    id: 'android_tv:${result.id}',
+    name: result.name,
+    platform: TvPlatform.androidTv,
+    host: result.host,
+  );
 
   /// A plain TCP connect (no TLS handshake, closed immediately) to the
   /// remote-control or pairing port - enough to know the Android TV Remote

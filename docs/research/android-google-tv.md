@@ -36,13 +36,17 @@ license/attribution details.
 mDNS/Bonjour service type `_androidtvremote2._tcp.local.`, port 6467
 (pairing) and 6466 (remote control, after pairing).
 
-**Implemented**: `AndroidTvDiscovery` (`discovery/android_tv_discovery.dart`)
-is an interface with two backends, chosen by `AndroidTvProvider`:
+**Implemented**: the shared `ServiceDiscovery` interface
+(`lib/tv/providers/shared/service_discovery/`, reused by any provider that
+finds devices via DNS-SD, e.g. Google Cast) has two backends, and
+`AndroidTvProvider` picks one by platform with `serviceType:
+_androidtvremote2._tcp, logTag: ANDROID_TV` (so the `[TV][DISCOVERY]
+[ANDROID_TV]` log lines are unchanged):
 
-- **Android (and other non-iOS)**: `MdnsAndroidTvDiscovery`, raw mDNS via
+- **Android (and other non-iOS)**: `MdnsServiceDiscovery`, raw mDNS via
   `package:multicast_dns` 0.3.3+1 (PTR -> SRV -> A).
-- **iOS**: `NativeBonjourAndroidTvDiscovery`, a MethodChannel to
-  `ios/Runner/AndroidTvBonjourDiscovery.swift` (`NWBrowser` browse +
+- **iOS**: `NativeBonjourServiceDiscovery`, a MethodChannel to
+  `ios/Runner/BonjourDiscoveryBridge.swift` (`NWBrowser` browse +
   `NetService` resolve). On a real iPhone, `MDnsClient.start()` failed in
   `RawDatagramSocket.joinMulticast` with a bare `OSError` (not a
   `SocketException`), which escaped `discover()` and was silently turned

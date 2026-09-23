@@ -6,7 +6,8 @@ import 'package:logging/logging.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 import 'package:remote_tv_2026/core/network/multicast_lock.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/mdns_android_tv_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/mdns_service_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/service_discovery.dart';
 
 /// A fully scripted, in-memory [MdnsQuerier] - no real sockets, so these
 /// tests run identically in CI as they do locally. Each lookup is keyed by
@@ -116,12 +117,16 @@ void main() {
     address: InternetAddress('192.168.1.42'),
   );
 
-  group('MdnsAndroidTvDiscovery', () {
+  group('MdnsServiceDiscovery', () {
     test(
       'a PTR stream that never completes still returns after the deadline',
       () async {
         final querier = FakeMdnsQuerier()..neverCompleting.add(ptrKey);
-        final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
+          querierFactory: () => querier,
+        );
 
         final stopwatch = Stopwatch()..start();
         final results = (await discovery.discover(
@@ -141,7 +146,11 @@ void main() {
         ..responses[ptrKey] = [ptrRecord()]
         ..responses[srvKey] = [srvRecord()]
         ..responses[ipKey] = [ipRecord()];
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final results = (await discovery.discover()).results;
 
@@ -157,7 +166,11 @@ void main() {
         ..responses[ptrKey] = [ptrRecord()]
         ..responses[srvKey] = [srvRecord()]
         ..delays[ipKey] = const Duration(seconds: 5);
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final stopwatch = Stopwatch()..start();
       final results = (await discovery.discover(
@@ -173,7 +186,11 @@ void main() {
     test('SRV resolution failure for an instance completes the scan cleanly without it', () async {
       final querier = FakeMdnsQuerier()..responses[ptrKey] = [ptrRecord()];
       // No SRV response configured - lookup resolves to an empty stream.
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final results = (await discovery.discover()).results;
 
@@ -186,7 +203,11 @@ void main() {
         ..responses[ptrKey] = [ptrRecord(), ptrRecord()]
         ..responses[srvKey] = [srvRecord(), srvRecord()]
         ..responses[ipKey] = [ipRecord()];
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final results = (await discovery.discover()).results;
 
@@ -196,7 +217,11 @@ void main() {
     test('stop() runs even when start() throws', () async {
       final querier = FakeMdnsQuerier()
         ..startError = const SocketException('no network');
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final results = (await discovery.discover()).results;
 
@@ -210,7 +235,11 @@ void main() {
       addTearDown(sub.cancel);
 
       final querier = FakeMdnsQuerier();
-      final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+      final discovery = MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      );
 
       final results = (await discovery.discover()).results;
 
@@ -248,7 +277,11 @@ void main() {
         required String reason,
       }) async {
         final querier = FakeMdnsQuerier()..startError = error;
-        final discovery = MdnsAndroidTvDiscovery(querierFactory: () => querier);
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
+          querierFactory: () => querier,
+        );
 
         final results = (await discovery.discover()).results;
 
@@ -292,7 +325,9 @@ void main() {
       });
 
       test('a querier factory that throws still completes the scan', () async {
-        final discovery = MdnsAndroidTvDiscovery(
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
           querierFactory: () => throw StateError('no client'),
         );
 
@@ -304,11 +339,69 @@ void main() {
       });
     });
 
+    group('TXT records', () {
+      test('are collected when requested', () async {
+        final txtKey = FakeMdnsQuerier.keyFor(
+          recordType: ResourceRecordType.text,
+          fqdn: instanceName,
+        );
+        final querier = FakeMdnsQuerier()
+          ..responses[ptrKey] = [ptrRecord()]
+          ..responses[srvKey] = [srvRecord()]
+          ..responses[ipKey] = [ipRecord()]
+          ..responses[txtKey] = [
+            const TxtResourceRecord(
+              instanceName,
+              0,
+              text: 'id=abc123\nfn=Living Room TV\nmd=Chromecast\n',
+            ),
+          ];
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'TEST',
+          collectTxt: true,
+          querierFactory: () => querier,
+        );
+
+        final result = (await discovery.discover()).results.single;
+
+        expect(result.txt, {
+          'id': 'abc123',
+          'fn': 'Living Room TV',
+          'md': 'Chromecast',
+        });
+      });
+
+      test('are not queried unless requested', () async {
+        final querier = FakeMdnsQuerier()
+          ..responses[ptrKey] = [ptrRecord()]
+          ..responses[srvKey] = [srvRecord()]
+          ..responses[ipKey] = [ipRecord()];
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'TEST',
+          querierFactory: () => querier,
+        );
+
+        expect((await discovery.discover()).results.single.txt, isEmpty);
+      });
+
+      test('parseTxtEntries handles flags and "=" in values', () {
+        expect(parseTxtEntries(['A=1', 'flag', '=bad', 'url=a=b', '']), {
+          'a': '1',
+          'flag': '',
+          'url': 'a=b',
+        });
+      });
+    });
+
     group('multicast lock', () {
       test('is held for the scan and released afterwards', () async {
         final lock = _RecordingLock();
         final querier = FakeMdnsQuerier();
-        final discovery = MdnsAndroidTvDiscovery(
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
           querierFactory: () => querier,
           multicastLock: lock,
         );
@@ -322,7 +415,9 @@ void main() {
         final lock = _RecordingLock();
         final querier = FakeMdnsQuerier()
           ..startError = const OSError('Address already in use', 48);
-        final discovery = MdnsAndroidTvDiscovery(
+        final discovery = MdnsServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
           querierFactory: () => querier,
           multicastLock: lock,
         );

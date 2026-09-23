@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:remote_tv_2026/tv/domain/tv_domain.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/native_bonjour_android_tv_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/native_bonjour_service_discovery.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel(NativeBonjourAndroidTvDiscovery.channelName);
+  const channel = MethodChannel(NativeBonjourServiceDiscovery.channelName);
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
@@ -42,13 +42,14 @@ void main() {
     'ipv4': '192.168.1.42',
   };
 
-  group('NativeBonjourAndroidTvDiscovery', () {
+  group('NativeBonjourServiceDiscovery', () {
     test('asks the native side for the Android TV Remote v2 service', () async {
       reply((_) async => {'services': <Object>[], 'browsed': 0});
 
-      await NativeBonjourAndroidTvDiscovery().discover(
-        timeout: const Duration(seconds: 3),
-      );
+      await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover(timeout: const Duration(seconds: 3));
 
       expect(calls.single.method, 'browse');
       expect(calls.single.arguments, {
@@ -65,8 +66,10 @@ void main() {
         },
       );
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, hasLength(1));
       expect(results.single.name, 'Family room TV');
@@ -80,6 +83,30 @@ void main() {
       expect(logged('[TV][DISCOVERY][ANDROID_TV] completed count=1'), isTrue);
     });
 
+    test('TXT key/values from the native side are passed through', () async {
+      reply(
+        (_) async => {
+          'services': [
+            {
+              ...familyRoomTv,
+              'txt': {'FN': 'Family room TV', 'bt': '3C:31:74:2D:25:D9'},
+            },
+          ],
+          'browsed': 1,
+        },
+      );
+
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
+
+      expect(results.single.txt, {
+        'fn': 'Family room TV',
+        'bt': '3C:31:74:2D:25:D9',
+      });
+    });
+
     test('without an IPv4 answer the .local hostname is kept', () async {
       reply(
         (_) async => {
@@ -90,8 +117,10 @@ void main() {
         },
       );
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(
         results.single.host,
@@ -108,8 +137,10 @@ void main() {
         },
       );
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, hasLength(1));
     });
@@ -124,8 +155,10 @@ void main() {
         },
       );
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -140,8 +173,10 @@ void main() {
     test('an empty browse is reported as ptr_empty', () async {
       reply((_) async => {'services': <Object>[], 'browsed': 0});
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(logged('resolve_failed stage=PTR reason=ptr_empty'), isTrue);
@@ -156,8 +191,10 @@ void main() {
         },
       );
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -171,8 +208,10 @@ void main() {
     test('a PlatformException never escapes discover()', () async {
       reply((_) async => throw PlatformException(code: 'bad_arguments'));
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -183,8 +222,10 @@ void main() {
     });
 
     test('a missing native bridge never escapes discover()', () async {
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(logged('start_failed type=MissingPluginException'), isTrue);
@@ -197,7 +238,9 @@ void main() {
         reply((_) => Completer<Object?>().future);
 
         final stopwatch = Stopwatch()..start();
-        final scan = await NativeBonjourAndroidTvDiscovery(
+        final scan = await NativeBonjourServiceDiscovery(
+          serviceType: AndroidTvConstants.mdnsServiceType,
+          logTag: 'ANDROID_TV',
           channelGrace: const Duration(milliseconds: 100),
         ).discover(timeout: const Duration(milliseconds: 200));
         final results = scan.results;
@@ -216,8 +259,10 @@ void main() {
     test('a malformed reply is logged and still completes', () async {
       reply((_) async => {'services': 'not a list'});
 
-      final results =
-          (await NativeBonjourAndroidTvDiscovery().discover()).results;
+      final results = (await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover()).results;
 
       expect(results, isEmpty);
       expect(logged('scan_failed'), isTrue);
