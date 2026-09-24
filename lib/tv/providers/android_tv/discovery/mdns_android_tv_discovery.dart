@@ -6,6 +6,7 @@ import 'package:multicast_dns/multicast_dns.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/network/multicast_lock.dart';
+import '../../../domain/tv_domain.dart';
 import '../android_tv_constants.dart';
 import 'android_tv_discovery.dart';
 
@@ -105,6 +106,8 @@ class SystemMdnsQuerier implements MdnsQuerier {
 
 enum _StartOutcome { started, timedOut, failed }
 
+typedef _StartResult = ({_StartOutcome outcome, TvDiscoveryIssue? issue});
+
 /// [AndroidTvDiscovery] over raw mDNS (`package:multicast_dns`), used on
 /// Android and every other non-iOS platform.
 ///
@@ -136,7 +139,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
   /// by the stable SRV-advertised hostname - never the resolved IP, which
   /// DHCP can reassign between scans.
   @override
-  Future<List<AndroidTvDiscoveryResult>> discover({
+  Future<AndroidTvDiscoveryScan> discover({
     Duration timeout = const Duration(seconds: 6),
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -144,6 +147,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
 
     final deadline = DateTime.now().add(timeout);
     final results = <String, AndroidTvDiscoveryResult>{};
+    TvDiscoveryIssue? issue;
     MdnsQuerier? querier;
     await _multicastLock.acquire();
 
@@ -152,7 +156,9 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
       _logger.info(
         '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_client_start',
       );
-      final outcome = await _startWithDeadline(querier, deadline);
+      final start = await _startWithDeadline(querier, deadline);
+      final outcome = start.outcome;
+      issue = start.issue;
       _logger.info(
         '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_client_start outcome=${outcome.name}',
       );
@@ -186,6 +192,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
         );
       }
     } catch (error) {
+      issue = TvDiscoveryIssue.failed;
       _logger.warning(
         '[TV][DISCOVERY][ANDROID_TV] scan_failed type=${error.runtimeType} '
         'error=${_describe(error)}',
@@ -202,7 +209,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
       '[TV][DISCOVERY][ANDROID_TV] completed count=${devices.length} '
       'durationMs=${stopwatch.elapsedMilliseconds}',
     );
-    return devices;
+    return AndroidTvDiscoveryScan(devices, issue: issue);
   }
 
   void _safeStop(MdnsQuerier querier) {
@@ -228,20 +235,24 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
   /// `MDnsClient.start()` can also hang indefinitely on a real device and
   /// can't be cancelled, so a timed-out start is abandoned in the
   /// background.
-  Future<_StartOutcome> _startWithDeadline(
+  Future<_StartResult> _startWithDeadline(
     MdnsQuerier querier,
     DateTime deadline,
   ) async {
     final remaining = _remaining(deadline);
-    if (remaining <= Duration.zero) return _StartOutcome.timedOut;
+    if (remaining <= Duration.zero) {
+      return (
+        outcome: _StartOutcome.timedOut,
+        issue: TvDiscoveryIssue.timedOut,
+      );
+    }
 
-    final completer = Completer<_StartOutcome>();
+    final completer = Completer<_StartResult>();
     Future<void> startFuture;
     try {
       startFuture = querier.start();
     } catch (error) {
-      _logStartFailure(error);
-      return _StartOutcome.failed;
+      return (outcome: _StartOutcome.failed, issue: _logStartFailure(error));
     }
     unawaited(
       startFuture.then(
@@ -249,11 +260,15 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
           _logger.info(
             '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_future_completed',
           );
-          if (!completer.isCompleted) completer.complete(_StartOutcome.started);
+          if (!completer.isCompleted) {
+            completer.complete((outcome: _StartOutcome.started, issue: null));
+          }
         },
         onError: (Object error) {
-          _logStartFailure(error);
-          if (!completer.isCompleted) completer.complete(_StartOutcome.failed);
+          final issue = _logStartFailure(error);
+          if (!completer.isCompleted) {
+            completer.complete((outcome: _StartOutcome.failed, issue: issue));
+          }
         },
       ),
     );
@@ -263,7 +278,10 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
         _logger.warning(
           '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=client_start',
         );
-        completer.complete(_StartOutcome.timedOut);
+        completer.complete((
+          outcome: _StartOutcome.timedOut,
+          issue: TvDiscoveryIssue.timedOut,
+        ));
       }
     });
 
@@ -274,16 +292,22 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     }
   }
 
-  void _logStartFailure(Object error) {
+  TvDiscoveryIssue _logStartFailure(Object error) {
     final osError = _osErrorOf(error);
+    final reason = classifyMdnsStartError(error);
     _logger.warning(
       '[TV][DISCOVERY][ANDROID_TV] start_failed type=${error.runtimeType} '
       'errno=${osError?.errorCode ?? 'none'} error=${_describe(error)}',
     );
     _logger.warning(
       '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=START '
-      'reason=${classifyMdnsStartError(error)}',
+      'reason=$reason',
     );
+    return switch (reason) {
+      'permission_denied_or_restricted' => TvDiscoveryIssue.multicastRestricted,
+      'network_unavailable' => TvDiscoveryIssue.networkUnavailable,
+      _ => TvDiscoveryIssue.failed,
+    };
   }
 
   Future<List<PtrResourceRecord>> _collectPtrRecords(
@@ -460,7 +484,9 @@ String _describe(Object error) =>
 /// Maps a `MDnsClient.start()` failure onto the discovery error model.
 /// errno values: EADDRINUSE is 48 on Darwin and 98 on Linux/Android;
 /// EPERM (1), EACCES (13) and EHOSTUNREACH (65 on Darwin, 113 on Linux) are
-/// what a sandbox/privacy policy refusing multicast looks like.
+/// what a sandbox/privacy policy refusing multicast looks like; ENETDOWN /
+/// ENETUNREACH (50/51 on Darwin, 100/101 on Linux) mean there's no usable
+/// network at all.
 @visibleForTesting
 String classifyMdnsStartError(Object error) {
   switch (_osErrorOf(error)?.errorCode) {
@@ -468,6 +494,8 @@ String classifyMdnsStartError(Object error) {
       return 'socket_bind_failed';
     case 1 || 13 || 65 || 113:
       return 'permission_denied_or_restricted';
+    case 50 || 51 || 100 || 101:
+      return 'network_unavailable';
     default:
       return 'start_failed';
   }

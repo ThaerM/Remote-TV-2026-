@@ -16,14 +16,19 @@ class _StubRealProvider implements TvProvider {
   TvPlatform get platform => TvPlatform.androidTv;
 
   @override
-  Future<List<TvDevice>> discover() async => const [
-    TvDevice(
-      id: 'real-1',
-      name: 'Living Room TV',
-      platform: TvPlatform.androidTv,
-      host: '192.168.1.5',
-    ),
-  ];
+  Future<TvDiscoveryOutcome> discover() async => const TvDiscoveryOutcome(
+    devices: [
+      TvDevice(
+        id: 'real-1',
+        name: 'Living Room TV',
+        platform: TvPlatform.androidTv,
+        host: '192.168.1.5',
+      ),
+    ],
+  );
+
+  @override
+  Future<TvDevice?> probeHost(String host) async => null;
 
   @override
   Future<TvPairingRequest> connect(TvDevice device) async =>
@@ -144,7 +149,7 @@ void main() {
         ),
       );
 
-      final devices = await registry.discoverAll();
+      final devices = (await registry.discoverAll()).devices;
 
       expect(devices, hasLength(1));
       expect(devices.any((d) => d.isDevelopmentFake), isFalse);
@@ -165,7 +170,7 @@ void main() {
           ),
         );
 
-        final devices = await registry.discoverAll();
+        final devices = (await registry.discoverAll()).devices;
 
         expect(devices.any((d) => d.isDevelopmentFake), isTrue);
         expect(devices.any((d) => !d.isDevelopmentFake), isTrue);

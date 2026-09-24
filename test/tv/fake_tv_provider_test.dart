@@ -15,14 +15,14 @@ void main() {
     });
 
     test('discover returns the demo device catalog', () async {
-      final devices = await provider.discover();
+      final devices = (await provider.discover()).devices;
 
       expect(devices, hasLength(3));
       expect(devices.every((d) => d.isDevelopmentFake), isTrue);
     });
 
     test('connect requests PIN pairing', () async {
-      final devices = await provider.discover();
+      final devices = (await provider.discover()).devices;
       final request = await provider.connect(devices.first);
 
       expect(request, isA<TvPinPairingRequest>());
@@ -30,7 +30,7 @@ void main() {
     });
 
     test('submitPairingCode with correct code connects', () async {
-      final devices = await provider.discover();
+      final devices = (await provider.discover()).devices;
       await provider.connect(devices.first);
 
       await provider.submitPairingCode('1234');
@@ -41,7 +41,7 @@ void main() {
     test(
       'submitPairingCode with wrong code throws and stays unpaired',
       () async {
-        final devices = await provider.discover();
+        final devices = (await provider.discover()).devices;
         await provider.connect(devices.first);
 
         await expectLater(
@@ -62,7 +62,7 @@ void main() {
     test(
       'sendCommand throws for a capability the device does not have',
       () async {
-        final devices = await provider.discover();
+        final devices = (await provider.discover()).devices;
         // Bedroom Samsung TV has no voice support in the default catalog.
         final samsung = devices.firstWhere((d) => d.name.contains('Samsung'));
         await provider.connect(samsung);
@@ -76,7 +76,7 @@ void main() {
     );
 
     test('sendCommand succeeds for a supported capability', () async {
-      final devices = await provider.discover();
+      final devices = (await provider.discover()).devices;
       final device = devices.firstWhere((d) => d.name.contains('Google'));
       await provider.connect(device);
       await provider.submitPairingCode('1234');
@@ -88,7 +88,7 @@ void main() {
     });
 
     test('disconnect resets state', () async {
-      final devices = await provider.discover();
+      final devices = (await provider.discover()).devices;
       await provider.connect(devices.first);
       await provider.submitPairingCode('1234');
 

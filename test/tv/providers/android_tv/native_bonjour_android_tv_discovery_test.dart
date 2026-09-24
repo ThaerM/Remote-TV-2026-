@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
+import 'package:remote_tv_2026/tv/domain/tv_domain.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/discovery/native_bonjour_android_tv_discovery.dart';
 
@@ -64,7 +65,8 @@ void main() {
         },
       );
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, hasLength(1));
       expect(results.single.name, 'Family room TV');
@@ -88,7 +90,8 @@ void main() {
         },
       );
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(
         results.single.host,
@@ -105,7 +108,8 @@ void main() {
         },
       );
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, hasLength(1));
     });
@@ -120,7 +124,8 @@ void main() {
         },
       );
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -135,7 +140,8 @@ void main() {
     test('an empty browse is reported as ptr_empty', () async {
       reply((_) async => {'services': <Object>[], 'browsed': 0});
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(logged('resolve_failed stage=PTR reason=ptr_empty'), isTrue);
@@ -150,7 +156,8 @@ void main() {
         },
       );
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -164,7 +171,8 @@ void main() {
     test('a PlatformException never escapes discover()', () async {
       reply((_) async => throw PlatformException(code: 'bad_arguments'));
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(
@@ -175,7 +183,8 @@ void main() {
     });
 
     test('a missing native bridge never escapes discover()', () async {
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(logged('start_failed type=MissingPluginException'), isTrue);
@@ -188,9 +197,11 @@ void main() {
         reply((_) => Completer<Object?>().future);
 
         final stopwatch = Stopwatch()..start();
-        final results = await NativeBonjourAndroidTvDiscovery(
+        final scan = await NativeBonjourAndroidTvDiscovery(
           channelGrace: const Duration(milliseconds: 100),
         ).discover(timeout: const Duration(milliseconds: 200));
+        final results = scan.results;
+        expect(scan.issue, TvDiscoveryIssue.timedOut);
 
         expect(results, isEmpty);
         expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
@@ -205,7 +216,8 @@ void main() {
     test('a malformed reply is logged and still completes', () async {
       reply((_) async => {'services': 'not a list'});
 
-      final results = await NativeBonjourAndroidTvDiscovery().discover();
+      final results =
+          (await NativeBonjourAndroidTvDiscovery().discover()).results;
 
       expect(results, isEmpty);
       expect(logged('scan_failed'), isTrue);

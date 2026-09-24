@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Socket;
 import 'dart:math' show min, pow;
 
 import '../../../core/logging/app_logger.dart';
@@ -41,7 +41,9 @@ class AndroidTvProvider implements TvProvider {
     })?
     connect,
     AndroidTvIdentity Function()? generateIdentity,
-  }) : _discovery = discovery ?? _defaultDiscovery(),
+    Future<bool> Function(String host, int port)? probePort,
+  }) : _probePort = probePort ?? _tcpPortOpen,
+       _discovery = discovery ?? _defaultDiscovery(),
        _connect = connect ?? TlsAndroidTvTransport.connect,
        _generateIdentity = generateIdentity ?? AndroidTvIdentity.generate,
        _logger = AppLogger('TV.Connection.AndroidTV');
@@ -52,6 +54,21 @@ class AndroidTvProvider implements TvProvider {
       ? NativeBonjourAndroidTvDiscovery()
       : MdnsAndroidTvDiscovery();
 
+  static Future<bool> _tcpPortOpen(String host, int port) async {
+    try {
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: const Duration(seconds: 2),
+      );
+      socket.destroy();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  final Future<bool> Function(String host, int port) _probePort;
   final AndroidTvPairedDeviceStore _store;
   final AndroidTvDiscovery _discovery;
   final AndroidTvIdentity Function() _generateIdentity;
@@ -88,9 +105,37 @@ class AndroidTvProvider implements TvProvider {
       _connectionStateController.stream;
 
   @override
-  Future<List<TvDevice>> discover() async {
-    final results = await _discovery.discover();
-    return results.map(discoveryResultToDevice).toList();
+  Future<TvDiscoveryOutcome> discover() async {
+    final scan = await _discovery.discover();
+    return TvDiscoveryOutcome(
+      devices: scan.results.map(discoveryResultToDevice).toList(),
+      issues: {?scan.issue},
+    );
+  }
+
+  /// A plain TCP connect (no TLS handshake, closed immediately) to the
+  /// remote-control or pairing port - enough to know the Android TV Remote
+  /// service is listening, without the TV showing anything.
+  @override
+  Future<TvDevice?> probeHost(String host) async {
+    for (final port in const [
+      AndroidTvConstants.remoteControlPort,
+      AndroidTvConstants.pairingPort,
+    ]) {
+      if (await _probePort(host, port)) {
+        _logger.info(
+          '[TV][DISCOVERY][ANDROID_TV] probe_found host=$host port=$port',
+        );
+        return TvDevice(
+          id: 'android_tv:$host',
+          name: 'Android TV ($host)',
+          platform: TvPlatform.androidTv,
+          host: host,
+        );
+      }
+    }
+    _logger.info('[TV][DISCOVERY][ANDROID_TV] probe_none host=$host');
+    return null;
   }
 
   @override

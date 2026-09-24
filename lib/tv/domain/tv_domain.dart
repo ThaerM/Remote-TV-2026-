@@ -7,6 +7,7 @@ export 'tv_capabilities.dart';
 export 'tv_command.dart';
 export 'tv_connection_state.dart';
 export 'tv_device.dart';
+export 'tv_discovery.dart';
 export 'tv_errors.dart';
 export 'tv_pairing.dart';
 export 'tv_platform.dart';

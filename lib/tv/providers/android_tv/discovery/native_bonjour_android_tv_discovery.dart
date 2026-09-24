@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../domain/tv_domain.dart';
 import '../android_tv_constants.dart';
 import 'android_tv_discovery.dart';
 
@@ -33,12 +34,13 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
   final AppLogger _logger;
 
   @override
-  Future<List<AndroidTvDiscoveryResult>> discover({
+  Future<AndroidTvDiscoveryScan> discover({
     Duration timeout = const Duration(seconds: 6),
   }) async {
     final stopwatch = Stopwatch()..start();
     _logger.info('[TV][DISCOVERY][ANDROID_TV] started backend=native_bonjour');
     final results = <String, AndroidTvDiscoveryResult>{};
+    TvDiscoveryIssue? issue;
 
     try {
       final reply = await _channel
@@ -47,12 +49,14 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
             'timeoutMs': timeout.inMilliseconds,
           })
           .timeout(timeout + _channelGrace);
-      _consume(reply ?? const {}, results);
+      issue = _consume(reply ?? const {}, results);
     } on TimeoutException {
+      issue = TvDiscoveryIssue.timedOut;
       _logger.warning(
         '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=BROWSE reason=scan_timeout',
       );
     } on PlatformException catch (error) {
+      issue = TvDiscoveryIssue.failed;
       _logger.warning(
         '[TV][DISCOVERY][ANDROID_TV] start_failed type=PlatformException '
         'code=${error.code} error=${error.message}',
@@ -61,6 +65,7 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
         '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=START reason=start_failed',
       );
     } on MissingPluginException {
+      issue = TvDiscoveryIssue.failed;
       _logger.warning(
         '[TV][DISCOVERY][ANDROID_TV] start_failed type=MissingPluginException '
         'error=native_bonjour_bridge_not_registered',
@@ -69,6 +74,7 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
         '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=START reason=start_failed',
       );
     } catch (error) {
+      issue = TvDiscoveryIssue.failed;
       _logger.warning(
         '[TV][DISCOVERY][ANDROID_TV] scan_failed type=${error.runtimeType} error=$error',
       );
@@ -79,10 +85,10 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
       '[TV][DISCOVERY][ANDROID_TV] completed count=${devices.length} '
       'durationMs=${stopwatch.elapsedMilliseconds}',
     );
-    return devices;
+    return AndroidTvDiscoveryScan(devices, issue: issue);
   }
 
-  void _consume(
+  TvDiscoveryIssue? _consume(
     Map<String, Object?> reply,
     Map<String, AndroidTvDiscoveryResult> results,
   ) {
@@ -93,6 +99,11 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
         'detail=${reply['detail'] ?? 'none'}',
       );
     }
+    final issue = switch (failure) {
+      null => null,
+      'permission_denied_or_restricted' => TvDiscoveryIssue.localNetworkDenied,
+      _ => TvDiscoveryIssue.failed,
+    };
 
     final browsed = (reply['browsed'] as num?)?.toInt() ?? 0;
     if (browsed == 0 && failure == null) {
@@ -149,5 +160,6 @@ class NativeBonjourAndroidTvDiscovery implements AndroidTvDiscovery {
       );
       _logger.info('[TV][DISCOVERY][ANDROID_TV] found device=$name');
     }
+    return issue;
   }
 }
