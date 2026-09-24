@@ -65,3 +65,42 @@ numeric commands, keyboard text input, app launch for a known app-ID
 list. Defer: voice, guaranteed wake-on-LAN, and any Magic Remote
 pointer/gyroscope-style pointing (a different interaction model from our
 D-pad/touchpad, worth a dedicated design discussion if pursued later).
+
+## Implementation status (`lib/tv/providers/lg_webos/`)
+
+**Implemented and unit-tested against a scripted fake TV; not yet run
+against a real LG TV.** Protocol facts (unsigned registration manifest,
+endpoints, button names) come from `aiowebostv` 0.10.0 (Apache-2.0, the
+library behind Home Assistant's webOS integration) - see
+`lib/tv/providers/lg_webos/NOTICE.md`. Current aiowebostv registers with
+an **unsigned** manifest, so no LG signature blob is embedded.
+
+- **Discovery**: SSDP `urn:lge-com:service:webos-second-screen:1`, name
+  from the UPnP description's `friendlyName`, id `lg:<UDN>`. On iOS the
+  SSDP send needs the multicast entitlement (see Roku notes), so **Add TV
+  by IP address** (`hello` on the SSAP socket, no registration) is the
+  fallback.
+- **Transport**: `ws://<tv>:3000`, falling back to `wss://<tv>:3001` with
+  the TV's self-signed certificate accepted for that host only (newer
+  firmware requires the secure port).
+- **Pairing**: `register` with `pairingType: PROMPT`. First time, the TV
+  shows "allow this device?" and the app shows
+  `TvConfirmOnDevicePairingRequest`; the returned client-key is stored in
+  `SecureCredentialStore` (`lg_webos.client_key.<deviceId>`) and reused
+  silently afterwards. Declining ends in `error` with nothing stored.
+- **Buttons** go over the separate pointer-input socket
+  (`getPointerInputSocket` -> `type:button\nname:<BUTTON>\n\n`): D-pad,
+  ENTER, BACK, HOME, MENU, GUIDE, INFO, volume/mute, channel, color keys,
+  digits, PLAY/PAUSE/STOP/REWIND/FASTFORWARD. **Text** via
+  `com.webos.service.ime/insertText`, **apps** via
+  `listLaunchPoints` + `system.launcher/launch`, **power off** via
+  `system/turnOff` (sent without waiting - the TV often never answers).
+- **Not supported**: power *on* (needs Wake-on-LAN), input switching (no
+  public SSAP button), previous/next.
+- **Reconnect**: 3-attempt backoff re-registering with the stored key; if
+  the TV asks for the prompt again (key revoked) it stops immediately in
+  `error` instead of prompting repeatedly.
+
+**Needs a real LG TV**: ws vs wss per firmware year, prompt UX, key
+reuse across TV reboots, button coverage, text entry in real apps, power
+off behavior with "Quick Start+".
