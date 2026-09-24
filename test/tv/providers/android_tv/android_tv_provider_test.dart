@@ -181,6 +181,7 @@ void main() {
 
       expect(request, isA<TvPinPairingRequest>());
       expect((request as TvPinPairingRequest).expectedLength, 6);
+      expect(request.alphabet, TvPinAlphabet.hex);
       expect(states, contains(TvConnectionState.pairingRequired));
 
       final validCode = findValidCode(clientIdentity, serverIdentity);

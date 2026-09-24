@@ -90,10 +90,19 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (pairingRequest.alphabet == TvPinAlphabet.hex) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'It can contain the letters A-F as well as numbers.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               PairingCodeInput(
                 key: _codeInputKey,
                 length: pairingRequest.expectedLength,
+                alphabet: pairingRequest.alphabet,
                 controller: _codeController,
                 onSubmitted: (code) => ref
                     .read(tvSessionControllerProvider.notifier)

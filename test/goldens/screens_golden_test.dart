@@ -195,7 +195,10 @@ void main() {
       session: const TvSessionState(
         selectedDevice: _familyRoomTv,
         connectionState: TvConnectionState.pairingRequired,
-        pairingRequest: TvPinPairingRequest(expectedLength: 6),
+        pairingRequest: TvPinPairingRequest(
+          expectedLength: 6,
+          alphabet: TvPinAlphabet.hex,
+        ),
       ),
     );
   });

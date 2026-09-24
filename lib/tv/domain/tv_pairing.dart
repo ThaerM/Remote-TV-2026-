@@ -14,12 +14,24 @@ class _NoPairingRequired extends TvPairingRequest {
   const _NoPairingRequired();
 }
 
+/// Which characters a pairing code shown on the TV can contain.
+enum TvPinAlphabet {
+  digits,
+
+  /// 0-9 and A-F, e.g. Android TV's 6-character codes.
+  hex,
+}
+
 /// The TV is displaying a short code; the user must enter it in-app via
 /// [TvProvider.submitPairingCode].
 class TvPinPairingRequest extends TvPairingRequest {
-  const TvPinPairingRequest({this.expectedLength = 4});
+  const TvPinPairingRequest({
+    this.expectedLength = 4,
+    this.alphabet = TvPinAlphabet.digits,
+  });
 
   final int expectedLength;
+  final TvPinAlphabet alphabet;
 }
 
 /// The user must confirm the pairing prompt shown on the TV itself; the app

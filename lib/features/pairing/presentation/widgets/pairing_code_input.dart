@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
+import '../../../../tv/domain/tv_domain.dart';
 
 /// Segmented PIN entry: one box per digit, matching the code length the
 /// TV displays (see `TvPinPairingRequest.expectedLength`). Wraps a
@@ -17,10 +18,12 @@ class PairingCodeInput extends StatefulWidget {
     required this.length,
     required this.controller,
     required this.onSubmitted,
+    this.alphabet = TvPinAlphabet.digits,
     super.key,
   });
 
   final int length;
+  final TvPinAlphabet alphabet;
   final TextEditingController controller;
   final ValueChanged<String> onSubmitted;
 
@@ -74,9 +77,18 @@ class PairingCodeInputState extends State<PairingCodeInput>
                 controller: widget.controller,
                 focusNode: _focusNode,
                 autofocus: true,
-                keyboardType: TextInputType.number,
+                keyboardType: widget.alphabet == TvPinAlphabet.hex
+                    ? TextInputType.visiblePassword
+                    : TextInputType.number,
+                textCapitalization: TextCapitalization.characters,
+                autocorrect: false,
+                enableSuggestions: false,
                 inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
+                  if (widget.alphabet == TvPinAlphabet.hex) ...[
+                    FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+                    const _UpperCaseFormatter(),
+                  ] else
+                    FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(widget.length),
                 ],
                 onChanged: (value) {
@@ -114,6 +126,16 @@ class PairingCodeInputState extends State<PairingCodeInput>
       ),
     );
   }
+}
+
+class _UpperCaseFormatter extends TextInputFormatter {
+  const _UpperCaseFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) => newValue.copyWith(text: newValue.text.toUpperCase());
 }
 
 class _DigitBox extends StatelessWidget {

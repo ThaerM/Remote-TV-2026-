@@ -204,6 +204,7 @@ class AndroidTvProvider implements TvProvider {
 
     return const TvPinPairingRequest(
       expectedLength: AndroidTvConstants.pairingCodeLength,
+      alphabet: TvPinAlphabet.hex,
     );
   }
 
