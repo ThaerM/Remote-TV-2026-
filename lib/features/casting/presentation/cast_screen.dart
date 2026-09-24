@@ -11,7 +11,7 @@ import '../../../tv/domain/tv_domain.dart';
 
 /// Casts a media link to the connected device and controls playback.
 /// Everything is gated on `TvCapabilities.casting` - which provider backs
-/// it (Google Cast today) is invisible here.
+/// it (Google Cast or DLNA) is invisible here.
 class CastScreen extends ConsumerWidget {
   const CastScreen({super.key});
 
@@ -40,9 +40,9 @@ class CastScreen extends ConsumerWidget {
                   "${session.selectedDevice?.name ?? 'This TV'} can't "
                   'receive casts',
               body:
-                  'Casting works with Google Cast devices. If this TV has '
-                  'Chromecast built-in, pick its "Google Cast" entry in Find '
-                  'your TV.',
+                  'Casting works with Google Cast and DLNA media devices. If '
+                  'this TV has Chromecast built-in, pick its "Google Cast" '
+                  'entry in Find your TV.',
             )
           : ListView(
               padding: const EdgeInsets.all(AppSpacing.lg),

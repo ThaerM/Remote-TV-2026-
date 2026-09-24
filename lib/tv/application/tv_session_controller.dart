@@ -343,9 +343,9 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   Future<void> disconnect() async {
     final provider = _activeProvider;
     _activeProvider = null;
-    await _connectionSub?.cancel();
+    unawaited(_connectionSub?.cancel());
     _connectionSub = null;
-    await _mediaSub?.cancel();
+    unawaited(_mediaSub?.cancel());
     _mediaSub = null;
     try {
       await provider?.disconnect();

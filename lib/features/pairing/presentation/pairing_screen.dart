@@ -42,6 +42,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     super.dispose();
   }
 
+  void _leave(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.discovery);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(tvSessionControllerProvider);
@@ -139,6 +147,10 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 ),
                 child: const Text('Where do I find the code?'),
               ),
+              TextButton(
+                onPressed: () => _leave(context),
+                child: const Text('Cancel'),
+              ),
             ] else if (pairingRequest is TvConfirmOnDevicePairingRequest) ...[
               const AnimatedConnectionRing(
                 active: true,
@@ -150,6 +162,21 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 'Confirm the pairing request on your TV screen',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
+              ),
+              if (session.lastError != null ||
+                  session.connectionState == TvConnectionState.error) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  session.lastError ??
+                      'The TV did not accept the connection. Try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              TextButton(
+                onPressed: () => _leave(context),
+                child: const Text('Cancel'),
               ),
             ] else ...[
               const AnimatedConnectionRing(
@@ -167,7 +194,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 FilledButton(
-                  onPressed: () => context.go(AppRoutes.discovery),
+                  onPressed: () => _leave(context),
                   child: const Text('Back to TVs'),
                 ),
               ] else

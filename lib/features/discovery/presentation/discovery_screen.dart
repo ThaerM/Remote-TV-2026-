@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -116,10 +118,12 @@ class _DeviceList extends ConsumerWidget {
               // Devices without a pairing step (Roku, Google Cast) are
               // already connected here; the pairing screen only reacts to
               // changes, so it would never move on for them.
-              final connected = session.isConnected;
-              context.go(
-                connected ? AppRoutes.connectedSuccess : AppRoutes.pairing,
-              );
+              if (session.isConnected) {
+                context.go(AppRoutes.connectedSuccess);
+              } else {
+                // Pushed, so Back returns here and cancels the pairing.
+                unawaited(context.push(AppRoutes.pairing));
+              }
             },
           ),
         );
