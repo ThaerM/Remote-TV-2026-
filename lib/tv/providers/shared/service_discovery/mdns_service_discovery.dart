@@ -7,10 +7,9 @@ import 'package:multicast_dns/multicast_dns.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/network/multicast_lock.dart';
 import '../../../domain/tv_domain.dart';
-import '../android_tv_constants.dart';
-import 'android_tv_discovery.dart';
+import 'service_discovery.dart';
 
-/// The minimal mDNS querying surface [MdnsAndroidTvDiscovery] needs from
+/// The minimal mDNS querying surface [MdnsServiceDiscovery] needs from
 /// `package:multicast_dns`'s [MDnsClient], so tests can inject a fake
 /// instead of driving real multicast sockets (never available in CI, and
 /// [MDnsClient] itself isn't mockable - it's a concrete class).
@@ -108,7 +107,7 @@ enum _StartOutcome { started, timedOut, failed }
 
 typedef _StartResult = ({_StartOutcome outcome, TvDiscoveryIssue? issue});
 
-/// [AndroidTvDiscovery] over raw mDNS (`package:multicast_dns`), used on
+/// [ServiceDiscovery] over raw mDNS (`package:multicast_dns`), used on
 /// Android and every other non-iOS platform.
 ///
 /// Every network stage (client start, PTR lookup, and per-instance SRV/IP
@@ -120,13 +119,26 @@ typedef _StartResult = ({_StartOutcome outcome, TvDiscoveryIssue? issue});
 /// `TvProviderRegistry.discoverAll` silently turned it into "no TVs"). A
 /// fresh [MdnsQuerier] is created per scan so one scan's wedged socket can
 /// never block the next.
-class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
-  MdnsAndroidTvDiscovery({
+class MdnsServiceDiscovery implements ServiceDiscovery {
+  MdnsServiceDiscovery({
+    required this._serviceType,
+    required this._logTag,
+    this._collectTxt = false,
     MdnsQuerier Function()? querierFactory,
     MulticastLock? multicastLock,
   }) : _querierFactory = querierFactory ?? SystemMdnsQuerier.new,
        _multicastLock = multicastLock ?? PlatformMulticastLock(),
-       _logger = AppLogger('TV.Discovery.mDNS.AndroidTV');
+       _logger = AppLogger('TV.Discovery.mDNS.$_logTag');
+
+  /// e.g. `_androidtvremote2._tcp` (no trailing `.local`).
+  final String _serviceType;
+
+  /// Upper-case tag used in `[TV][DISCOVERY][<TAG>]` log lines.
+  final String _logTag;
+
+  /// Also look up each instance's TXT record (in parallel with its A
+  /// record, within the same budget). Off unless a provider needs it.
+  final bool _collectTxt;
 
   final MdnsQuerier Function() _querierFactory;
   final MulticastLock _multicastLock;
@@ -139,40 +151,36 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
   /// by the stable SRV-advertised hostname - never the resolved IP, which
   /// DHCP can reassign between scans.
   @override
-  Future<AndroidTvDiscoveryScan> discover({
+  Future<ServiceDiscoveryScan> discover({
     Duration timeout = const Duration(seconds: 6),
   }) async {
     final stopwatch = Stopwatch()..start();
-    _logger.info('[TV][DISCOVERY][ANDROID_TV] started backend=mdns');
+    _logger.info('[TV][DISCOVERY][$_logTag] started backend=mdns');
 
     final deadline = DateTime.now().add(timeout);
-    final results = <String, AndroidTvDiscoveryResult>{};
+    final results = <String, ServiceDiscoveryResult>{};
     TvDiscoveryIssue? issue;
     MdnsQuerier? querier;
     await _multicastLock.acquire();
 
     try {
       querier = _querierFactory();
-      _logger.info(
-        '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_client_start',
-      );
+      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=before_client_start');
       final start = await _startWithDeadline(querier, deadline);
       final outcome = start.outcome;
       issue = start.issue;
       _logger.info(
-        '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_client_start outcome=${outcome.name}',
+        '[TV][DISCOVERY][$_logTag] checkpoint=after_client_start outcome=${outcome.name}',
       );
       if (outcome == _StartOutcome.started) {
-        _logger.info(
-          '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_ptr_collect',
-        );
+        _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=before_ptr_collect');
         final ptrRecords = await _collectPtrRecords(querier, deadline);
         _logger.info(
-          '[TV][DISCOVERY][ANDROID_TV] checkpoint=after_ptr_collect count=${ptrRecords.length}',
+          '[TV][DISCOVERY][$_logTag] checkpoint=after_ptr_collect count=${ptrRecords.length}',
         );
         if (ptrRecords.isEmpty) {
           _logger.warning(
-            '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=PTR reason=ptr_empty',
+            '[TV][DISCOVERY][$_logTag] resolve_failed stage=PTR reason=ptr_empty',
           );
         }
         final resolved = await Future.wait(
@@ -182,34 +190,34 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
           if (result != null) {
             results[result.id] = result;
             _logger.info(
-              '[TV][DISCOVERY][ANDROID_TV] found device=${result.name}',
+              '[TV][DISCOVERY][$_logTag] found device=${result.name}',
             );
           }
         }
       } else if (outcome == _StartOutcome.timedOut) {
         _logger.warning(
-          '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=START reason=scan_timeout',
+          '[TV][DISCOVERY][$_logTag] resolve_failed stage=START reason=scan_timeout',
         );
       }
     } catch (error) {
       issue = TvDiscoveryIssue.failed;
       _logger.warning(
-        '[TV][DISCOVERY][ANDROID_TV] scan_failed type=${error.runtimeType} '
+        '[TV][DISCOVERY][$_logTag] scan_failed type=${error.runtimeType} '
         'error=${_describe(error)}',
       );
     } finally {
-      _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_start');
+      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=finally_stop_start');
       if (querier != null) _safeStop(querier);
       await _multicastLock.release();
-      _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_done');
+      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=finally_stop_done');
     }
 
     final devices = results.values.toList(growable: false);
     _logger.info(
-      '[TV][DISCOVERY][ANDROID_TV] completed count=${devices.length} '
+      '[TV][DISCOVERY][$_logTag] completed count=${devices.length} '
       'durationMs=${stopwatch.elapsedMilliseconds}',
     );
-    return AndroidTvDiscoveryScan(devices, issue: issue);
+    return ServiceDiscoveryScan(devices, issue: issue);
   }
 
   void _safeStop(MdnsQuerier querier) {
@@ -217,7 +225,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
       querier.stop();
     } catch (error) {
       _logger.warning(
-        '[TV][DISCOVERY][ANDROID_TV] stop_failed type=${error.runtimeType}',
+        '[TV][DISCOVERY][$_logTag] stop_failed type=${error.runtimeType}',
       );
     }
   }
@@ -258,7 +266,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
       startFuture.then(
         (_) {
           _logger.info(
-            '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_future_completed',
+            '[TV][DISCOVERY][$_logTag] checkpoint=start_future_completed',
           );
           if (!completer.isCompleted) {
             completer.complete((outcome: _StartOutcome.started, issue: null));
@@ -272,11 +280,11 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
         },
       ),
     );
-    _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=start_future_created');
+    _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=start_future_created');
     final timer = Timer(remaining, () {
       if (!completer.isCompleted) {
         _logger.warning(
-          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=client_start',
+          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=client_start',
         );
         completer.complete((
           outcome: _StartOutcome.timedOut,
@@ -296,11 +304,11 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     final osError = _osErrorOf(error);
     final reason = classifyMdnsStartError(error);
     _logger.warning(
-      '[TV][DISCOVERY][ANDROID_TV] start_failed type=${error.runtimeType} '
+      '[TV][DISCOVERY][$_logTag] start_failed type=${error.runtimeType} '
       'errno=${osError?.errorCode ?? 'none'} error=${_describe(error)}',
     );
     _logger.warning(
-      '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=START '
+      '[TV][DISCOVERY][$_logTag] resolve_failed stage=START '
       'reason=$reason',
     );
     return switch (reason) {
@@ -322,7 +330,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     final timer = Timer(remaining, () {
       if (!completer.isCompleted) {
         _logger.info(
-          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=ptr',
+          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=ptr',
         );
         completer.complete();
       }
@@ -330,21 +338,19 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
 
     final sub = querier
         .lookup<PtrResourceRecord>(
-          ResourceRecordQuery.serverPointer(
-            '${AndroidTvConstants.mdnsServiceType}.local',
-          ),
+          ResourceRecordQuery.serverPointer('$_serviceType.local'),
           timeout: remaining,
         )
         .listen(
           (ptr) {
             _logger.info(
-              '[TV][DISCOVERY][ANDROID_TV] ptr instance=${_friendlyNameFrom(ptr.domainName)}',
+              '[TV][DISCOVERY][$_logTag] ptr instance=${_friendlyNameFrom(ptr.domainName)}',
             );
             ptrRecords.add(ptr);
           },
           onError: (Object error) {
             _logger.warning(
-              '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=PTR '
+              '[TV][DISCOVERY][$_logTag] resolve_failed stage=PTR '
               'type=${error.runtimeType}',
             );
           },
@@ -364,14 +370,14 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     return ptrRecords;
   }
 
-  Future<AndroidTvDiscoveryResult?> _resolveInstance(
+  Future<ServiceDiscoveryResult?> _resolveInstance(
     MdnsQuerier querier,
     PtrResourceRecord ptr,
     DateTime deadline,
   ) async {
     final friendlyName = _friendlyNameFrom(ptr.domainName);
     _logger.info(
-      '[TV][DISCOVERY][ANDROID_TV] checkpoint=before_srv_lookup instance=$friendlyName',
+      '[TV][DISCOVERY][$_logTag] checkpoint=before_srv_lookup instance=$friendlyName',
     );
     final srv = await _collectFirst<SrvResourceRecord>(
       querier,
@@ -381,29 +387,39 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     );
     if (srv == null) {
       _logger.warning(
-        '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=SRV reason=srv_failed instance=$friendlyName',
+        '[TV][DISCOVERY][$_logTag] resolve_failed stage=SRV reason=srv_failed instance=$friendlyName',
       );
       return null;
     }
     final targetHost = stripTrailingDot(srv.target);
     _logger.info(
-      '[TV][DISCOVERY][ANDROID_TV] srv host=$targetHost port=${srv.port}',
+      '[TV][DISCOVERY][$_logTag] srv host=$targetHost port=${srv.port}',
     );
 
+    final ipBudget = _boundedRemaining(deadline, _ipStageTimeout);
+    final txtFuture = _collectTxt
+        ? _collectFirst<TxtResourceRecord>(
+            querier,
+            ResourceRecordQuery.text(ptr.domainName),
+            ipBudget,
+            stage: 'txt',
+          )
+        : Future<TxtResourceRecord?>.value();
     final ipRecord = await _collectFirst<IPAddressResourceRecord>(
       querier,
       ResourceRecordQuery.addressIPv4(srv.target),
-      _boundedRemaining(deadline, _ipStageTimeout),
+      ipBudget,
       stage: 'ip',
     );
+    final txtRecord = await txtFuture;
     final resolvedIp = ipRecord?.address.address;
     if (resolvedIp != null) {
       _logger.info(
-        '[TV][DISCOVERY][ANDROID_TV] resolved host=$targetHost ip=$resolvedIp',
+        '[TV][DISCOVERY][$_logTag] resolved host=$targetHost ip=$resolvedIp',
       );
     } else {
       _logger.warning(
-        '[TV][DISCOVERY][ANDROID_TV] resolve_failed stage=IP reason=ip_failed host=$targetHost',
+        '[TV][DISCOVERY][$_logTag] resolve_failed stage=IP reason=ip_failed host=$targetHost',
       );
     }
 
@@ -411,13 +427,16 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     // resolver, so a device with a valid SRV record but no A/AAAA answer is
     // still reachable - prefer the resolved IP, but don't drop the device
     // just because that one extra lookup didn't complete in time.
-    return AndroidTvDiscoveryResult(
+    return ServiceDiscoveryResult(
       // Keyed by the stable SRV hostname, not the resolved IP - a DHCP
       // lease change must not change this device's identity between scans.
       id: targetHost,
       name: friendlyName,
       host: resolvedIp ?? targetHost,
       port: srv.port,
+      txt: txtRecord == null
+          ? const {}
+          : parseTxtEntries(txtRecord.text.split('\n')),
     );
   }
 
@@ -433,7 +452,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     final timer = Timer(timeout, () {
       if (!completer.isCompleted) {
         _logger.warning(
-          '[TV][DISCOVERY][ANDROID_TV] checkpoint=start_deadline_fired stage=$stage',
+          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=$stage',
         );
         completer.complete(null);
       }
@@ -463,7 +482,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
   }
 
   String _friendlyNameFrom(String domainName) {
-    final serviceSuffix = '.${AndroidTvConstants.mdnsServiceType}.local';
+    final serviceSuffix = '.$_serviceType.local';
     final instance = domainName.endsWith(serviceSuffix)
         ? domainName.substring(0, domainName.length - serviceSuffix.length)
         : domainName;

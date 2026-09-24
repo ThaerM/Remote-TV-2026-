@@ -2,8 +2,9 @@ import Flutter
 import Foundation
 import Network
 
-/// Native Bonjour browse for Android TV Remote services, bridged to Dart's
-/// `NativeBonjourAndroidTvDiscovery` over a MethodChannel.
+/// Native Bonjour browse for any DNS-SD service type (Android TV Remote,
+/// Google Cast, ...), bridged to Dart's `NativeBonjourServiceDiscovery`
+/// over a MethodChannel. Every browsed type must be in `NSBonjourServices`.
 ///
 /// Exists because iOS restricts raw multicast (UDP 5353) sockets in
 /// third-party apps, which is what `package:multicast_dns` needs; the system
@@ -11,14 +12,16 @@ import Network
 /// service listed in `NSBonjourServices`. `NWBrowser` browses (and reports
 /// local-network-privacy denial precisely); `NetService` resolves host/port
 /// without opening a connection to the TV.
-final class AndroidTvBonjourDiscovery: NSObject {
-  static let channelName = "remote_tv_2026/android_tv_bonjour"
+final class BonjourDiscoveryBridge: NSObject {
+  static let channelName = "remote_tv_2026/bonjour"
 
   private let channel: FlutterMethodChannel
-  private var activeScan: BonjourScan?
+  // Keyed by service type: providers scan in parallel (Android TV and
+  // Cast at once), so only a newer scan of the *same* type supersedes one.
+  private var activeScans: [String: BonjourScan] = [:]
 
   init(messenger: FlutterBinaryMessenger) {
-    channel = FlutterMethodChannel(name: AndroidTvBonjourDiscovery.channelName, binaryMessenger: messenger)
+    channel = FlutterMethodChannel(name: BonjourDiscoveryBridge.channelName, binaryMessenger: messenger)
     super.init()
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result)
@@ -38,14 +41,15 @@ final class AndroidTvBonjourDiscovery: NSObject {
       return
     }
 
-    // A newer scan supersedes an older one; the older call still gets
-    // whatever it had found so far, so no Dart future is left pending.
-    activeScan?.finish()
+    // A newer scan of the same type supersedes an older one; the older
+    // call still gets whatever it had found so far, so no Dart future is
+    // left pending.
+    activeScans[serviceType]?.finish()
     let scan = BonjourScan(serviceType: serviceType, timeout: TimeInterval(timeoutMs) / 1000.0)
-    activeScan = scan
+    activeScans[serviceType] = scan
     scan.start { [weak self, weak scan] payload in
-      if let self = self, let scan = scan, self.activeScan === scan {
-        self.activeScan = nil
+      if let self = self, let scan = scan, self.activeScans[serviceType] === scan {
+        self.activeScans[serviceType] = nil
       }
       result(payload)
     }
@@ -154,6 +158,13 @@ private final class BonjourScan: NSObject, NetServiceDelegate {
     }
     if let ipv4 = BonjourScan.firstIPv4(sender.addresses) {
       entry["ipv4"] = ipv4
+    }
+    if let txtData = sender.txtRecordData() {
+      var txt: [String: String] = [:]
+      for (key, value) in NetService.dictionary(fromTXTRecord: txtData) {
+        txt[key] = String(data: value, encoding: .utf8) ?? ""
+      }
+      entry["txt"] = txt
     }
     // Called again as more addresses arrive; keep the richest answer.
     if resolved[sender.name]?["ipv4"] == nil || entry["ipv4"] != nil {

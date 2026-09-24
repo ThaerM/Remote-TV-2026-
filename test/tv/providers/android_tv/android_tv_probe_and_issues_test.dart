@@ -4,25 +4,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remote_tv_2026/core/storage/in_memory_credential_store.dart';
 import 'package:remote_tv_2026/tv/domain/tv_domain.dart';
+import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_constants.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/android_tv_provider.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/android_tv_discovery.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/mdns_android_tv_discovery.dart';
-import 'package:remote_tv_2026/tv/providers/android_tv/discovery/native_bonjour_android_tv_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/service_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/mdns_service_discovery.dart';
+import 'package:remote_tv_2026/tv/providers/shared/service_discovery/native_bonjour_service_discovery.dart';
 import 'package:remote_tv_2026/tv/providers/android_tv/storage/android_tv_paired_device_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'mdns_android_tv_discovery_test.dart' show FakeMdnsQuerier;
+import '../shared/mdns_service_discovery_test.dart' show FakeMdnsQuerier;
 
-class _ScanDiscovery implements AndroidTvDiscovery {
+class _ScanDiscovery implements ServiceDiscovery {
   _ScanDiscovery(this.scan);
-  final AndroidTvDiscoveryScan scan;
+  final ServiceDiscoveryScan scan;
 
   @override
-  Future<AndroidTvDiscoveryScan> discover({Duration? timeout}) async => scan;
+  Future<ServiceDiscoveryScan> discover({Duration? timeout}) async => scan;
 }
 
 AndroidTvProvider _provider({
-  AndroidTvDiscovery? discovery,
+  ServiceDiscovery? discovery,
   Future<bool> Function(String host, int port)? probePort,
 }) {
   return AndroidTvProvider(
@@ -40,8 +41,8 @@ void main() {
     test('maps results to devices and carries the scan issue', () async {
       final provider = _provider(
         discovery: _ScanDiscovery(
-          const AndroidTvDiscoveryScan([
-            AndroidTvDiscoveryResult(
+          const ServiceDiscoveryScan([
+            ServiceDiscoveryResult(
               id: 'Android_x.local',
               name: 'Family room TV',
               host: '192.168.1.42',
@@ -97,8 +98,11 @@ void main() {
   group('mDNS start failures map to discovery issues', () {
     Future<TvDiscoveryIssue?> issueFor(Object error) async {
       final querier = FakeMdnsQuerier()..startError = error;
-      final scan = await MdnsAndroidTvDiscovery(querierFactory: () => querier)
-          .discover();
+      final scan = await MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+        querierFactory: () => querier,
+      ).discover();
       return scan.issue;
     }
 
@@ -126,7 +130,9 @@ void main() {
     });
 
     test('a healthy empty scan reports no issue', () async {
-      final scan = await MdnsAndroidTvDiscovery(
+      final scan = await MdnsServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
         querierFactory: FakeMdnsQuerier.new,
       ).discover(timeout: const Duration(milliseconds: 200));
       expect(scan.issue, isNull);
@@ -134,7 +140,7 @@ void main() {
   });
 
   group('native Bonjour failures map to discovery issues', () {
-    const channel = MethodChannel(NativeBonjourAndroidTvDiscovery.channelName);
+    const channel = MethodChannel(NativeBonjourServiceDiscovery.channelName);
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     tearDown(() => messenger.setMockMethodCallHandler(channel, null));
@@ -149,13 +155,19 @@ void main() {
         },
       );
 
-      final scan = await NativeBonjourAndroidTvDiscovery().discover();
+      final scan = await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover();
 
       expect(scan.issue, TvDiscoveryIssue.localNetworkDenied);
     });
 
     test('missing bridge -> failed', () async {
-      final scan = await NativeBonjourAndroidTvDiscovery().discover();
+      final scan = await NativeBonjourServiceDiscovery(
+        serviceType: AndroidTvConstants.mdnsServiceType,
+        logTag: 'ANDROID_TV',
+      ).discover();
       expect(scan.issue, TvDiscoveryIssue.failed);
     });
   });
