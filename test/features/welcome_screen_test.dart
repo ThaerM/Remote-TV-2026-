@@ -43,6 +43,7 @@ void main() {
     expect(find.text('Remote TV 2026'), findsOneWidget);
     expect(find.text('Find my TV'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Find my TV'));
     await tester.tap(find.text('Find my TV'));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
 

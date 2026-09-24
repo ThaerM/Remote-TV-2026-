@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
+import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/widgets/discovery_radar.dart';
+import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
 import 'discovery_issue_copy.dart';
@@ -75,16 +77,28 @@ class _ScanningState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          const DiscoveryRadar(),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Scanning your network for TVs…',
-            style: Theme.of(context).textTheme.bodyMedium,
+            'Looking for TVs nearby',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineMedium,
           ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Make sure your TV and phone are on the same Wi-Fi network.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+          // The radar itself communicates "still scanning" continuously,
+          // so it - not a spinner - carries the waiting state; this
+          // section just frames it with real context above.
+          const Expanded(child: Center(child: DiscoveryRadar())),
         ],
       ),
     );
@@ -96,18 +110,19 @@ class _DeviceList extends ConsumerWidget {
 
   final List<TvDevice> devices;
 
-  /// "Remote", "Cast", or both - never invented, only what the grouped
-  /// endpoints actually are. Ungrouped devices keep the plain platform
-  /// name they always had, so a lone Roku/Cast/Android TV card is
-  /// unchanged from before grouping existed.
+  /// Only for an ungrouped device or a demo device - a grouped physical
+  /// TV shows [_capabilityBadges] instead. Never invented: the plain
+  /// platform name a lone Roku/Cast/Android TV card always showed.
   static String _statusLabel(PhysicalTvDevice physical) {
     if (physical.isDevelopmentFake) return 'Demo device · not a real TV';
-    if (!physical.isGrouped) return physical.primary.platform.displayName;
-    final capabilities = [
-      if (physical.hasRemote) 'Remote',
-      if (physical.hasCast) 'Cast',
-    ];
-    return capabilities.join(' • ');
+    return physical.primary.platform.displayName;
+  }
+
+  /// "Remote", "Cast", or both - never invented, only what the grouped
+  /// endpoints actually are, and never a raw protocol/service name.
+  static List<String>? _capabilityBadges(PhysicalTvDevice physical) {
+    if (!physical.isGrouped) return null;
+    return [if (physical.hasRemote) 'Remote', if (physical.hasCast) 'Cast'];
   }
 
   @override
@@ -117,56 +132,73 @@ class _DeviceList extends ConsumerWidget {
     // `discoveredDevices` all at once - see TvSessionController.discover),
     // so a rescan can't flicker a card between grouped and split.
     final physicalDevices = PhysicalTvDevice.group(devices);
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: physicalDevices.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        if (index == physicalDevices.length) {
-          return TextButton.icon(
-            onPressed: () => AddTvByAddressSheet.show(context),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text("Don't see your TV? Add it by IP address"),
-          );
-        }
-        final physical = physicalDevices[index];
-        return _StaggeredEntrance(
-          index: index,
-          child: TvDeviceCard(
-            device: physical.primary,
-            statusLabel: _statusLabel(physical),
-            onTap: () async {
-              // Hides the protocol choice: connects with the remote
-              // endpoint when this physical TV has one (Android TV,
-              // Roku, ...), the cast endpoint otherwise. Providers stay
-              // untouched - this only picks which single TvDevice
-              // TvSessionController.connect gets, exactly as before
-              // grouping existed.
-              await ref
-                  .read(tvSessionControllerProvider.notifier)
-                  .connect(physical.primary);
-              if (!context.mounted) return;
-              final session = ref.read(tvSessionControllerProvider);
-              final error = session.lastError;
-              if (error != null && session.pairingRequest == null) {
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(content: Text(error)));
-                return;
+    return Column(
+      children: [
+        SectionHeader(
+          physicalDevices.length == 1
+              ? '1 TV found nearby'
+              : '${physicalDevices.length} TVs found nearby',
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            itemCount: physicalDevices.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              if (index == physicalDevices.length) {
+                return TextButton.icon(
+                  onPressed: () => AddTvByAddressSheet.show(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text("Don't see your TV? Add it by IP address"),
+                );
               }
-              // Devices without a pairing step (Roku, Google Cast) are
-              // already connected here; the pairing screen only reacts to
-              // changes, so it would never move on for them.
-              if (session.isConnected) {
-                context.go(AppRoutes.connectedSuccess);
-              } else {
-                // Pushed, so Back returns here and cancels the pairing.
-                unawaited(context.push(AppRoutes.pairing));
-              }
+              final physical = physicalDevices[index];
+              return _StaggeredEntrance(
+                index: index,
+                child: TvDeviceCard(
+                  device: physical.primary,
+                  statusLabel: _statusLabel(physical),
+                  capabilityBadges: _capabilityBadges(physical),
+                  onTap: () async {
+                    // Hides the protocol choice: connects with the remote
+                    // endpoint when this physical TV has one (Android TV,
+                    // Roku, ...), the cast endpoint otherwise. Providers stay
+                    // untouched - this only picks which single TvDevice
+                    // TvSessionController.connect gets, exactly as before
+                    // grouping existed.
+                    await ref
+                        .read(tvSessionControllerProvider.notifier)
+                        .connect(physical.primary);
+                    if (!context.mounted) return;
+                    final session = ref.read(tvSessionControllerProvider);
+                    final error = session.lastError;
+                    if (error != null && session.pairingRequest == null) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(content: Text(error)));
+                      return;
+                    }
+                    // Devices without a pairing step (Roku, Google Cast) are
+                    // already connected here; the pairing screen only reacts to
+                    // changes, so it would never move on for them.
+                    if (session.isConnected) {
+                      context.go(AppRoutes.connectedSuccess);
+                    } else {
+                      // Pushed, so Back returns here and cancels the pairing.
+                      unawaited(context.push(AppRoutes.pairing));
+                    }
+                  },
+                ),
+              );
             },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
@@ -246,21 +278,40 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              copy.icon,
-              size: 56,
-              color: Theme.of(context).colorScheme.secondary,
+            // A soft glow behind the icon, not a bare glyph on black -
+            // this "found nothing yet" state should feel like a designed
+            // resting state, not a broken/blank screen.
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.glow.withValues(alpha: 0.16),
+                    AppColors.glow.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                copy.icon,
+                size: 40,
+                color: theme.colorScheme.secondary,
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               copy.title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.headlineMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),

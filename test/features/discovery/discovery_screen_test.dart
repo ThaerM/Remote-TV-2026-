@@ -172,7 +172,10 @@ void main() {
         await _settleScan(tester);
 
         expect(find.text('Family room TV'), findsOneWidget);
-        expect(find.text('Remote • Cast'), findsOneWidget);
+        // Shown as separate capability badges, not one joined string.
+        expect(find.text('Remote'), findsOneWidget);
+        expect(find.text('Cast'), findsOneWidget);
+        expect(find.text('Remote • Cast'), findsNothing);
         // Never a raw protocol label for a grouped device.
         expect(find.text('Android TV / Google TV'), findsNothing);
         expect(find.text('Google Cast'), findsNothing);

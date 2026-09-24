@@ -104,6 +104,7 @@ void main() {
     addTearDown(container.dispose);
 
     await _pumpApp(tester, container, onboarded: false, provider: provider);
+    await tester.ensureVisible(find.text('Find my TV'));
     await tester.tap(find.text('Find my TV'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

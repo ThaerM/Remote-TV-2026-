@@ -229,6 +229,7 @@ void main() {
         await tester.pumpWidget(_wrap(router));
         await tester.pump();
 
+        await tester.ensureVisible(find.text('Find my TV'));
         await tester.tap(find.text('Find my TV'));
         await _settle(tester);
 
