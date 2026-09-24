@@ -9,6 +9,7 @@ export 'tv_connection_state.dart';
 export 'tv_device.dart';
 export 'tv_discovery.dart';
 export 'tv_errors.dart';
+export 'tv_media.dart';
 export 'tv_pairing.dart';
 export 'tv_platform.dart';
 export 'tv_provider.dart';

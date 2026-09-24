@@ -7,6 +7,7 @@ import '../domain/tv_domain.dart';
 import 'android_tv/android_tv_provider.dart';
 import 'android_tv/storage/android_tv_paired_device_store.dart';
 import 'fake/fake_tv_provider.dart';
+import 'google_cast/google_cast_provider.dart';
 import 'registry/tv_provider_registry.dart';
 import 'roku/roku_provider.dart';
 
@@ -46,6 +47,12 @@ final androidTvProviderProvider = Provider<AndroidTvProvider>((ref) {
   return provider;
 });
 
+final googleCastProviderProvider = Provider<GoogleCastProvider>((ref) {
+  final provider = GoogleCastProvider();
+  ref.onDispose(provider.dispose);
+  return provider;
+});
+
 final rokuProviderProvider = Provider<RokuProvider>((ref) {
   final provider = RokuProvider();
   ref.onDispose(provider.dispose);
@@ -60,7 +67,8 @@ final rokuProviderProvider = Provider<RokuProvider>((ref) {
 /// unit-testable without needing a `--dart-define` recompile - see
 /// `test/tv/providers/tv_provider_registry_provider_test.dart`.
 ///
-/// Real providers ([AndroidTvProvider], [RokuProvider]) are always
+/// Real providers ([AndroidTvProvider], [GoogleCastProvider],
+/// [RokuProvider]) are always
 /// registered. `FakeTvProvider` is opt-in only, so a normal `flutter
 /// run` against a real TV never mixes demo devices into real discovery
 /// results.
@@ -78,6 +86,7 @@ final tvProviderRegistryProvider = Provider<TvProviderRegistry>((ref) {
       enableDemoDevices: kEnableDemoTvDevices,
       realProviders: [
         ref.watch(androidTvProviderProvider),
+        ref.watch(googleCastProviderProvider),
         ref.watch(rokuProviderProvider),
       ],
       fakeTvProvider: ref.watch(fakeTvProviderProvider),

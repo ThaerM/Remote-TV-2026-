@@ -56,3 +56,38 @@ Device discovery (mDNS), session start against a chosen receiver, load a
 media URL, transport controls (play/pause/stop/seek), session
 reconnection after app backgrounding. Out of scope: custom Cast receiver
 app development (using Google's default receiver only).
+
+## Decision (Phase 2)
+
+Implemented as a pure-Dart CASTV2 sender instead of option B - see
+`docs/decisions/ADR-004-google-cast-castv2.md` for the reasoning and the
+accepted risks (not Google-sanctioned, so no official Cast branding).
+
+**Implemented and unit-tested, not yet run against a real receiver**
+(`lib/tv/providers/google_cast/`):
+
+- Discovery: `_googlecast._tcp` via the shared DNS-SD layer (native
+  Bonjour on iOS - `_googlecast._tcp` is in `NSBonjourServices` - raw mDNS
+  on Android), name from TXT `fn`, id from TXT `id`, Cast groups keep
+  their own SRV port. A Google TV with Chromecast built-in appears twice
+  in Find your TV: once as "Android TV / Google TV" (remote) and once as
+  "Google Cast" (media target); the device card shows which.
+- Add by IP: TLS + `GET_STATUS` on 8009.
+- Session: CONNECT, 5 s heartbeat (and PONG replies), 15 s idle watchdog,
+  8 s request timeouts (20 s for LAUNCH/LOAD), bounded 3-attempt
+  exponential-backoff reconnect, CLOSE on disconnect.
+- Media: launch or reuse the Default Media Receiver, LOAD a URL
+  (`contentId`/`contentUrl`, BUFFERED/LIVE, title metadata),
+  PLAY/PAUSE/SEEK/STOP, receiver SET_VOLUME level/muted (hidden when the
+  device reports `controlType: fixed`). Rewind/forward = seek -10 s/+30 s.
+- Cast screen: cast a direct media link (type detected from the
+  extension, or chosen), now-playing card with seek bar and controls.
+
+`TvCapabilities.casting` is true once the receiver answers `GET_STATUS`
+on a live session - a LOAD can still fail per-URL, and that failure is
+shown inline rather than hiding the capability.
+
+**Needs a real device**: Chromecast/Google TV/Cast-TV discovery naming,
+LOAD with real media URLs (HLS, MP4), receiver behavior when another
+sender takes over, volume on TV-integrated receivers, reconnect after
+Wi-Fi drops, Cast groups.

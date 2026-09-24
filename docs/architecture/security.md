@@ -56,6 +56,16 @@ never be copied into a provider that has a real CA to validate against:
 - The private key backing our side of that handshake still never
   touches plain storage - see "Pairing secrets" above.
 
+### Google Cast (`TlsCastTransport`)
+
+Cast receivers present certificates chained to Google's private device
+CA, which isn't a public root, so `TlsCastTransport` also accepts the peer
+without CA validation - the same as every open-source Cast sender - and
+does not run the optional `deviceauth` challenge. The exposure is bounded:
+the connection is local-network only, carries no user credentials or
+secrets, and only ever asks the receiver to play URLs the user typed.
+Scoped to that one class; see ADR-004.
+
 A future provider that has a real CA available (e.g. anything using a
 manufacturer's cloud API over standard HTTPS) must validate certificates
 normally; this exception exists only because the protocol itself has no

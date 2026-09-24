@@ -29,6 +29,7 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_androidtvremote2._tcp</string>
+		<string>_googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Remote TV 2026 looks for Android TV and Google TV devices on your Wi-Fi network so you can pair with and control them.</string>
