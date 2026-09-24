@@ -11,6 +11,7 @@ import 'google_cast/google_cast_provider.dart';
 import 'lg_webos/lg_webos_provider.dart';
 import 'registry/tv_provider_registry.dart';
 import 'roku/roku_provider.dart';
+import 'samsung/samsung_tv_provider.dart';
 
 /// Long-lived [FakeTvProvider] instance backing the demo experience.
 ///
@@ -62,6 +63,14 @@ final lgWebOsProviderProvider = Provider<LgWebOsProvider>((ref) {
   return provider;
 });
 
+final samsungTvProviderProvider = Provider<SamsungTvProvider>((ref) {
+  final provider = SamsungTvProvider(
+    secureStore: ref.watch(secureCredentialStoreProvider),
+  );
+  ref.onDispose(provider.dispose);
+  return provider;
+});
+
 final rokuProviderProvider = Provider<RokuProvider>((ref) {
   final provider = RokuProvider();
   ref.onDispose(provider.dispose);
@@ -77,7 +86,7 @@ final rokuProviderProvider = Provider<RokuProvider>((ref) {
 /// `test/tv/providers/tv_provider_registry_provider_test.dart`.
 ///
 /// Real providers ([AndroidTvProvider], [GoogleCastProvider],
-/// [LgWebOsProvider], [RokuProvider]) are always
+/// [LgWebOsProvider], [RokuProvider], [SamsungTvProvider]) are always
 /// registered. `FakeTvProvider` is opt-in only, so a normal `flutter
 /// run` against a real TV never mixes demo devices into real discovery
 /// results.
@@ -98,6 +107,7 @@ final tvProviderRegistryProvider = Provider<TvProviderRegistry>((ref) {
         ref.watch(googleCastProviderProvider),
         ref.watch(lgWebOsProviderProvider),
         ref.watch(rokuProviderProvider),
+        ref.watch(samsungTvProviderProvider),
       ],
       fakeTvProvider: ref.watch(fakeTvProviderProvider),
     ),

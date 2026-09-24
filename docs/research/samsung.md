@@ -63,3 +63,39 @@ external account dependency for a core feature). Pairing + token
 persistence, D-pad/volume/channel/numeric/color-key commands, app launch
 for a small known app-ID list, capability flags conservative by default
 (assume less, not more, until verified against a real test device).
+
+## Implementation status (`lib/tv/providers/samsung/`)
+
+**Implemented and unit-tested against a scripted fake TV; not yet run
+against a real Samsung TV.** Protocol facts were confirmed against the
+`samsungtvws` Python library's behavior (LGPL-3.0 - used as a reference
+only; no code copied) - the Dart implementation is independent.
+
+- **Scope**: Tizen (2016+) only. Pre-2016 Orsay TVs don't answer
+  `GET http://<tv>:8001/api/v2/` and are simply not listed.
+- **Discovery**: SSDP `urn:samsung.com:device:RemoteControlReceiver:1`,
+  then `GET /api/v2/` for the TV's own name, id and `TokenAuthSupport`.
+  iOS needs the multicast entitlement for SSDP; **Add TV by IP address**
+  uses the same REST call and works without it.
+- **Transport/pairing**: `TokenAuthSupport: "true"` (2018+) ->
+  `wss://<tv>:8002/api/v2/channels/samsung.remote.control?name=<base64>`
+  (self-signed, host-scoped) with `&token=` once known; older models use
+  `ws://<tv>:8001` with no token. No `ms.channel.connect` within 3 s means
+  the TV is showing its Allow/Deny prompt -> `TvConfirmOnDevicePairingRequest`;
+  Allow delivers a token (stored in `SecureCredentialStore`,
+  `samsung.token.<deviceId>`), Deny (`ms.channel.unauthorized`) ends in
+  `error`.
+- **Commands**: `ms.remote.control` `SendRemoteKey` clicks (D-pad, Enter,
+  Return, Home, Menu, Guide, Info, Source, Power, volume/mute, channel,
+  previous channel, color keys, digits, play/pause/stop/rewind/FF); text
+  via base64 `SendInputString` + `SendInputEnd` (types into the focused
+  field); apps via `ed.installedApp.get` / `ed.apps.launch` (DEEP_LINK for
+  app_type 2). Newer firmware may ignore the apps request - that yields
+  an empty list, so the quick-apps row stays hidden.
+- **Not supported**: power *on* (needs Wake-on-LAN), previous/next, voice.
+- **Reconnect**: 3-attempt backoff with the stored token; a TV that would
+  prompt again (token revoked) or denies stops in `error`.
+
+**Needs a real Samsung TV**: prompt timing, token persistence across TV
+reboots, key coverage by model year, text input, the installed-apps
+request on current firmware.
