@@ -1,7 +1,9 @@
 # TV Protocol Matrix
 
-Research snapshot, not a support claim - the app supports none of these
-in real form yet (Phase 0 ships only `FakeTvProvider`). "Confidence"
+Research snapshot, not a support claim. For what's actually implemented
+and verified, see `docs/product/feature-matrix.md` (providers exist for
+Android TV, Google Cast, Roku, LG, Samsung and DLNA; none real-device
+verified yet). "Confidence"
 reflects how independently corroborated the entry is from public docs and
 established community implementations, not certainty about future
 Flutter integration effort.

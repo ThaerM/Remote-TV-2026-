@@ -3,57 +3,49 @@
 A universal, capability-aware smart TV remote and companion app built
 with Flutter.
 
-## Project status: Phase 1 (Android TV / Google TV)
+## Project status
 
-The Foundation phase shipped a fake-device-only remote experience.
-**Phase 1 adds a real provider: `AndroidTvProvider`**, implementing real
-mDNS discovery, real TLS certificate pairing, and the real Android TV
-Remote v2 protocol - see
-[`docs/research/android-google-tv.md`](docs/research/android-google-tv.md).
-**This has not yet been validated against a physical TV** - its protocol
-logic is unit-tested in isolation (including a self-consistency check of
-the pairing-secret cryptography), but the real-device pass in
-[`docs/testing/android-tv-real-device.md`](docs/testing/android-tv-real-device.md)
-still needs to happen before it should be trusted or advertised as
-working. `FakeTvProvider` remains available alongside it for UI
-development, tests, and demos.
+Six real providers are implemented - **none has passed its real-device
+test yet**, so treat every one as "implemented and unit-tested, not
+proven on hardware". The honest, row-by-row picture is in
+[`docs/product/feature-matrix.md`](docs/product/feature-matrix.md); the
+script to prove them is
+[`docs/testing/real-device-test-plan.md`](docs/testing/real-device-test-plan.md).
+
+| Provider | What it does | Notes |
+|---|---|---|
+| Android TV / Google TV | Full remote (Android TV Remote v2, TLS pairing) | Gates A-D pending |
+| Google Cast | Cast media links, playback, volume | Dart CASTV2 sender - see ADR-004 |
+| Roku | Full remote (official ECP), apps | iOS: add by IP unless the multicast entitlement is granted |
+| LG webOS | Full remote (SSAP), apps, keyboard | Confirm-on-TV pairing |
+| Samsung Tizen (2016+) | Full remote, apps, keyboard | Allow-on-TV pairing |
+| DLNA / UPnP renderers | Cast target only | Android discovery only |
+
+Not implemented (and not claimed): Fire TV, screen mirroring, APK
+install, voice, power-on/Wake-on-LAN, casting files stored on the phone,
+CarPlay (not viable). `FakeTvProvider` demo devices exist for UI work
+only (`--dart-define=ENABLE_DEMO_TV_DEVICES=true`).
 
 ## What's implemented
 
-- Flutter app (Android + iOS) with a dark-first Material 3 theme
-  (dark / light / system)
-- TV domain model + `TvProvider` interface + provider registry
-  (`lib/tv/`) - see
+- Flutter app (Android + iOS), premium dark-first design system with a
+  centralized motion system, reduced-motion support and accessibility
+  semantics - see [`docs/design/design-system.md`](docs/design/design-system.md)
+- `TvProvider` interface + provider registry + capability-driven UI: every
+  control renders only when the connected device supports it
+  (`TvCapabilities`, including per-key `unsupportedKeys`) - see
   [`docs/architecture/provider-system.md`](docs/architecture/provider-system.md)
-- `FakeTvProvider`: three demo devices with different capability sets, so
-  the remote UI can be proven to adapt per device without real hardware
-- `AndroidTvProvider`: real mDNS discovery, real TLS pairing handshake,
-  real authenticated remote-control protocol, capability-gated commands,
-  reconnect with backoff, secure pairing-identity persistence - **pending
-  physical-device validation**, see
-  [`docs/research/android-google-tv.md`](docs/research/android-google-tv.md)
-- Capability-driven Remote screen: every control group (D-pad, volume,
-  channel, keyboard, voice, media transport, numeric keypad, color keys,
-  quick app shortcuts) renders only when the connected device reports
-  support for it
-- Full first-run flow: Welcome -> Discovery -> Pairing (PIN) -> Remote
-- Cast, Devices (including paired Android TVs, with Forget), and Settings
-  screens (Remote Layout, Remote Behavior, Diagnostics)
-- Secure credential storage (Keychain/Keystore via
-  `flutter_secure_storage`), used by `AndroidTvProvider` to persist its
-  pairing identity
-- Structured logging convention (`AppLogger`, `[TV][...]` tags)
-- Unit + widget tests, GitHub Actions CI
-
-## Planned platforms
-
-Android TV / Google TV is implemented (Phase 1, pending device
-validation - see above). Google Cast, Samsung (Tizen), LG webOS, Roku,
-Fire TV, and DLNA/UPnP are not yet implemented - research for each is in
-[`docs/research/`](docs/research). See the roadmap for sequencing. **Do
-not treat "implemented" as "verified working on every device"** - see
-each provider's own research doc for what's been validated versus what
-still needs real-device testing.
+- Discovery that always finishes and says why it missed TVs (local
+  network denied, not on Wi-Fi, multicast restricted, timeout), plus
+  **Add TV by IP address**
+- Flow: Welcome -> Find my TV -> Pairing (PIN or confirm-on-TV) ->
+  Connected -> Remote; Cast tab (media links, now playing); Devices;
+  Settings (layout, behavior, theater mode, diagnostics)
+- Secrets only in Keychain/Keystore; local-first, no analytics - see
+  [`docs/architecture/security.md`](docs/architecture/security.md) and
+  [`docs/architecture/privacy.md`](docs/architecture/privacy.md)
+- Unit + widget tests (no real network in CI) and CI that also builds the
+  Android and iOS apps
 
 ## Architecture
 
@@ -91,23 +83,19 @@ dart format .                            # format
 dart format --set-exit-if-changed .      # format check (CI)
 flutter analyze                          # static analysis
 flutter test                             # unit + widget tests
-flutter build apk --debug                # Android debug build (requires Android SDK)
+flutter build apk --debug                # Android debug build (also run in CI)
+flutter build ios --debug --no-codesign  # iOS build on a Mac (also run in CI)
 ```
 
 ## Testing
 
-`flutter test` covers: `TvCapabilities` equality/copyWith, the provider
-registry, `FakeTvProvider`'s full discover -> pair -> command lifecycle
-(including unsupported-command and wrong-PIN failure paths), the
-in-memory credential store, the settings controller, a widget test
-proving the Remote screen renders different controls for different
-`TvCapabilities`, and `AndroidTvProvider`'s protocol layer (certificate
-generation, the pairing-secret hash, message framing, the pairing and
-remote-session state machines, command mapping, paired-device
-persistence, and a full discover-pair-connect-forget integration test)
-against fake transports - no physical TV required. See
-[`docs/testing/android-tv-real-device.md`](docs/testing/android-tv-real-device.md)
-for the manual pass that still needs a real device.
+`flutter test` runs every provider's protocol against scripted fakes of
+the real device (Android TV transports, a fake Cast receiver, a fake LG
+SSAP endpoint, a fake Samsung channel, a fake UPnP renderer, fake SSDP and
+mDNS) plus widget tests for capability-driven UI - no real network or TV
+in CI. Real hardware is covered by
+[`docs/testing/real-device-test-plan.md`](docs/testing/real-device-test-plan.md).
+Release readiness: [`docs/release/release-checklist.md`](docs/release/release-checklist.md).
 
 ## For AI agents / future contributors
 

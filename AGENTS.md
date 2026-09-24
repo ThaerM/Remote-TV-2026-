@@ -12,20 +12,21 @@ protocol inside its own provider - **not** one shared network protocol.
 
 ## Current phase
 
-**Phase 1: Android TV / Google TV.** `AndroidTvProvider`
-(`lib/tv/providers/android_tv/`) implements real mDNS discovery, real
-TLS certificate pairing, and the real Android TV Remote v2 protocol,
-registered alongside (not replacing) `FakeTvProvider`. Its protocol
-logic is unit-tested against fake transports, but **it has not been
-validated against a physical TV yet** - see
-`docs/testing/android-tv-real-device.md` for the manual pass that must
-happen before claiming it works, and
-`docs/research/android-google-tv.md`'s "Tested vs. untested assumptions"
-table for exactly what's proven versus what isn't. Do not claim
-real-device-verified support in code comments, UI copy, or docs until
-that manual pass has actually been run. Per the current task's stop
-condition, no other real provider (Cast, Samsung, LG, Roku, Fire TV) has
-been started - see `docs/product/feature-roadmap.md`.
+Six real providers exist - Android TV/Google TV, Google Cast (Dart CASTV2,
+see ADR-004), Roku (ECP), LG webOS (SSAP), Samsung Tizen, DLNA - plus
+`FakeTvProvider`. **None has passed its real-device pass yet**
+(`docs/testing/real-device-test-plan.md`); Android TV's Gates A-D are the
+blocking ones. `docs/product/feature-matrix.md` is the source of truth for
+what's implemented vs verified. Do not claim real-device-verified support
+in code comments, UI copy, or docs until that pass has actually been run.
+Not implemented (don't claim): Fire TV, screen mirroring, APK install,
+voice, power-on, casting phone-stored files, CarPlay.
+
+Shared pieces providers build on: `lib/tv/providers/shared/service_discovery/`
+(DNS-SD: native Bonjour on iOS, raw mDNS on Android), `lib/core/network/`
+(SSDP, UPnP descriptions, text WebSocket, multicast lock). iOS raw
+multicast (SSDP) needs Apple's multicast entitlement, which the app does
+not have - SSDP providers fall back to **Add TV by IP address** there.
 
 ## Architecture (read `docs/architecture/overview.md` for full detail)
 
@@ -37,7 +38,8 @@ lib/
   tv/
     domain/       TvDevice, TvCapabilities, TvCommand, TvConnectionState,
                   TvPairingRequest, TvException hierarchy, TvProvider interface
-    providers/    fake/ today; one directory per platform as phases land
+    providers/    one directory per platform (android_tv, google_cast, roku,
+                  lg_webos, samsung, dlna, fake) + shared/
     application/   TvSessionController (the only thing features talk to)
 ```
 
@@ -141,10 +143,7 @@ For UI development/demos, use
 
 ## Recommended next task
 
-Run the manual real-device pass in
-`docs/testing/android-tv-real-device.md` against an actual Android TV /
-Google TV device and fix whatever it finds - this is the gating step
-before Phase 1 can be considered done. Do not start Phase 2 (Google
-Cast) or any other real provider before that validation happens and any
-resulting bugs are fixed, per the current task's explicit stop
-condition.
+Run `docs/testing/real-device-test-plan.md` on real hardware, starting
+with Android TV Gates A-D, and fix whatever it finds. Then the blocking
+owner items in `docs/release/release-checklist.md` (release signing, the
+multicast-entitlement decision, final icons).
