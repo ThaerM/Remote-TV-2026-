@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:remote_tv_2026/app/routing/app_router.dart';
 import 'package:remote_tv_2026/features/discovery/presentation/discovery_screen.dart';
 import 'package:remote_tv_2026/tv/application/tv_session_controller.dart';
 import 'package:remote_tv_2026/tv/domain/tv_domain.dart';
@@ -140,6 +142,179 @@ void main() {
       ),
     );
     expect(opacity.opacity, 1);
+  });
+
+  group('DiscoveryScreen physical device grouping', () {
+    testWidgets(
+      'Android TV + Cast on the same host show one grouped card, titled '
+      'with the TV name and both capabilities',
+      (tester) async {
+        final provider = StubTvProvider(
+          platform: TvPlatform.androidTv,
+          outcome: const TvDiscoveryOutcome(
+            devices: [
+              TvDevice(
+                id: 'android_tv:Android_9ca7.local',
+                name: 'Family room TV',
+                platform: TvPlatform.androidTv,
+                host: '192.168.1.42',
+              ),
+              TvDevice(
+                id: 'cast:abc123',
+                name: 'Family room TV',
+                platform: TvPlatform.googleCast,
+                host: '192.168.1.42',
+              ),
+            ],
+          ),
+        );
+        await tester.pumpWidget(_app(provider));
+        await _settleScan(tester);
+
+        expect(find.text('Family room TV'), findsOneWidget);
+        expect(find.text('Remote • Cast'), findsOneWidget);
+        // Never a raw protocol label for a grouped device.
+        expect(find.text('Android TV / Google TV'), findsNothing);
+        expect(find.text('Google Cast'), findsNothing);
+      },
+    );
+
+    testWidgets('a Cast-only device shows its plain platform label', (
+      tester,
+    ) async {
+      final provider = StubTvProvider(
+        platform: TvPlatform.androidTv,
+        outcome: const TvDiscoveryOutcome(
+          devices: [
+            TvDevice(
+              id: 'cast:def456',
+              name: 'Living Room Chromecast',
+              platform: TvPlatform.googleCast,
+              host: '192.168.1.60',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(_app(provider));
+      await _settleScan(tester);
+
+      expect(find.text('Living Room Chromecast'), findsOneWidget);
+      expect(find.text('Google Cast'), findsOneWidget);
+      expect(find.text('Remote • Cast'), findsNothing);
+    });
+
+    testWidgets('a remote-only Android TV shows its plain platform label', (
+      tester,
+    ) async {
+      final provider = StubTvProvider(
+        platform: TvPlatform.androidTv,
+        outcome: const TvDiscoveryOutcome(
+          devices: [
+            TvDevice(
+              id: 'android_tv:Android_solo.local',
+              name: 'Office TV',
+              platform: TvPlatform.androidTv,
+              host: '192.168.1.70',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(_app(provider));
+      await _settleScan(tester);
+
+      expect(find.text('Office TV'), findsOneWidget);
+      expect(find.text('Android TV / Google TV'), findsOneWidget);
+      expect(find.text('Remote • Cast'), findsNothing);
+    });
+
+    testWidgets('same display name, different hosts: two cards, never merged', (
+      tester,
+    ) async {
+      final provider = StubTvProvider(
+        platform: TvPlatform.androidTv,
+        outcome: const TvDiscoveryOutcome(
+          devices: [
+            TvDevice(
+              id: 'android_tv:one',
+              name: 'Family room TV',
+              platform: TvPlatform.androidTv,
+              host: '192.168.1.42',
+            ),
+            TvDevice(
+              id: 'cast:two',
+              name: 'Family room TV',
+              platform: TvPlatform.googleCast,
+              host: '192.168.1.99',
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(_app(provider));
+      await _settleScan(tester);
+
+      expect(find.text('Family room TV'), findsNWidgets(2));
+      expect(find.text('Android TV / Google TV'), findsOneWidget);
+      expect(find.text('Google Cast'), findsOneWidget);
+      expect(find.text('Remote • Cast'), findsNothing);
+    });
+
+    testWidgets(
+      'tapping a grouped card connects with the remote endpoint, never '
+      'asking the user to pick a protocol',
+      (tester) async {
+        final provider = StubTvProvider(
+          platform: TvPlatform.androidTv,
+          outcome: const TvDiscoveryOutcome(
+            devices: [
+              TvDevice(
+                id: 'android_tv:Android_9ca7.local',
+                name: 'Family room TV',
+                platform: TvPlatform.androidTv,
+                host: '192.168.1.42',
+              ),
+              TvDevice(
+                id: 'cast:abc123',
+                name: 'Family room TV',
+                platform: TvPlatform.googleCast,
+                host: '192.168.1.42',
+              ),
+            ],
+          ),
+        );
+        final router = GoRouter(
+          initialLocation: AppRoutes.discovery,
+          routes: [
+            GoRoute(
+              path: AppRoutes.discovery,
+              builder: (context, state) => const DiscoveryScreen(),
+            ),
+            GoRoute(
+              path: AppRoutes.connectedSuccess,
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Connected!')),
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              tvProviderRegistryProvider.overrideWithValue(
+                TvProviderRegistry([provider]),
+              ),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await _settleScan(tester);
+
+        await tester.tap(find.text('Family room TV'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(provider.connectCalls, 1);
+        expect(find.text('Connected!'), findsOneWidget);
+      },
+    );
   });
 
   group('TvSessionController manual devices', () {

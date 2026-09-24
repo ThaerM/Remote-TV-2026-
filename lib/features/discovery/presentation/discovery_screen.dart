@@ -88,34 +88,55 @@ class _DeviceList extends ConsumerWidget {
 
   final List<TvDevice> devices;
 
+  /// "Remote", "Cast", or both - never invented, only what the grouped
+  /// endpoints actually are. Ungrouped devices keep the plain platform
+  /// name they always had, so a lone Roku/Cast/Android TV card is
+  /// unchanged from before grouping existed.
+  static String _statusLabel(PhysicalTvDevice physical) {
+    if (physical.isDevelopmentFake) return 'Demo device · not a real TV';
+    if (!physical.isGrouped) return physical.primary.platform.displayName;
+    final capabilities = [
+      if (physical.hasRemote) 'Remote',
+      if (physical.hasCast) 'Cast',
+    ];
+    return capabilities.join(' • ');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Grouped fresh from the flat list on every build: a pure function of
+    // already-atomic discovery results (the registry only ever replaces
+    // `discoveredDevices` all at once - see TvSessionController.discover),
+    // so a rescan can't flicker a card between grouped and split.
+    final physicalDevices = PhysicalTvDevice.group(devices);
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: devices.length + 1,
+      itemCount: physicalDevices.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (context, index) {
-        if (index == devices.length) {
+        if (index == physicalDevices.length) {
           return TextButton.icon(
             onPressed: () => AddTvByAddressSheet.show(context),
             icon: const Icon(Icons.add_rounded),
             label: const Text("Don't see your TV? Add it by IP address"),
           );
         }
-        final device = devices[index];
+        final physical = physicalDevices[index];
         return _StaggeredEntrance(
           index: index,
           child: TvDeviceCard(
-            device: device,
-            // The platform name matters: a Google TV can appear twice, once
-            // as a remote (Android TV) and once as a Cast target.
-            statusLabel: device.isDevelopmentFake
-                ? 'Demo device · not a real TV'
-                : device.platform.displayName,
+            device: physical.primary,
+            statusLabel: _statusLabel(physical),
             onTap: () async {
+              // Hides the protocol choice: connects with the remote
+              // endpoint when this physical TV has one (Android TV,
+              // Roku, ...), the cast endpoint otherwise. Providers stay
+              // untouched - this only picks which single TvDevice
+              // TvSessionController.connect gets, exactly as before
+              // grouping existed.
               await ref
                   .read(tvSessionControllerProvider.notifier)
-                  .connect(device);
+                  .connect(physical.primary);
               if (!context.mounted) return;
               final session = ref.read(tvSessionControllerProvider);
               final error = session.lastError;

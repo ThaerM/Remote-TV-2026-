@@ -11,5 +11,6 @@ export 'tv_discovery.dart';
 export 'tv_errors.dart';
 export 'tv_media.dart';
 export 'tv_pairing.dart';
+export 'physical_tv_device.dart';
 export 'tv_platform.dart';
 export 'tv_provider.dart';
