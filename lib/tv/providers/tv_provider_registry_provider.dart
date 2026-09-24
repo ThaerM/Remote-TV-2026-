@@ -109,13 +109,16 @@ final tvProviderRegistryProvider = Provider<TvProviderRegistry>((ref) {
   return TvProviderRegistry(
     selectRegisteredProviders(
       enableDemoDevices: kEnableDemoTvDevices,
+      // Discovery lists devices in this order: full remotes first, then
+      // media-only targets (Cast, DLNA), which often are the same physical
+      // TV seen through a second protocol.
       realProviders: [
         ref.watch(androidTvProviderProvider),
-        ref.watch(dlnaProviderProvider),
-        ref.watch(googleCastProviderProvider),
+        ref.watch(samsungTvProviderProvider),
         ref.watch(lgWebOsProviderProvider),
         ref.watch(rokuProviderProvider),
-        ref.watch(samsungTvProviderProvider),
+        ref.watch(googleCastProviderProvider),
+        ref.watch(dlnaProviderProvider),
       ],
       fakeTvProvider: ref.watch(fakeTvProviderProvider),
     ),

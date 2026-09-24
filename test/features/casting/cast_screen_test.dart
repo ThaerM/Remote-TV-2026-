@@ -14,10 +14,9 @@ import '../../tv/stub_tv_provider.dart';
 /// A connectable provider whose device reports [capabilities], and which
 /// records casts when it's a [TvMediaCaster].
 class _Provider extends StubTvProvider implements TvMediaCaster {
-  _Provider(this.capabilities, {this.castError})
-    : super(platform: TvPlatform.googleCast);
+  _Provider(TvCapabilities capabilities, {this.castError})
+    : super(platform: TvPlatform.googleCast, capabilities: capabilities);
 
-  final TvCapabilities capabilities;
   final TvException? castError;
   final _states = StreamController<TvConnectionState>.broadcast();
   final _media = StreamController<TvMediaStatus?>.broadcast();
@@ -31,9 +30,6 @@ class _Provider extends StubTvProvider implements TvMediaCaster {
     _states.add(TvConnectionState.connected);
     return TvPairingRequest.none;
   }
-
-  @override
-  Future<TvCapabilities> getCapabilities() async => capabilities;
 
   @override
   Stream<TvMediaStatus?> get mediaStatus => _media.stream;

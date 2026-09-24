@@ -25,10 +25,20 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   final _codeController = TextEditingController();
   final _codeInputKey = GlobalKey<PairingCodeInputState>();
   String? _lastShownError;
+  late final TvSessionController _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = ref.read(tvSessionControllerProvider.notifier);
+  }
 
   @override
   void dispose() {
     _codeController.dispose();
+    // Leaving before pairing finished (Back, or switching tabs) cancels it;
+    // a no-op once connected.
+    Future.microtask(_session.cancelPairing);
     super.dispose();
   }
 
@@ -47,6 +57,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       // A fresh, non-empty error while still awaiting a PIN means the
       // code we just submitted was rejected - play the error feedback
       // once per distinct error, not on every rebuild.
+      if (next.lastError == null) _lastShownError = null;
       if (next.pairingRequest is TvPinPairingRequest &&
           next.lastError != null &&
           next.lastError != _lastShownError) {
@@ -138,10 +149,23 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 child: Icon(Icons.tv_rounded, size: 40),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(
-                'Connecting…',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              if (session.lastError != null ||
+                  session.connectionState == TvConnectionState.error) ...[
+                Text(
+                  session.lastError ?? 'Could not connect to this TV.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                FilledButton(
+                  onPressed: () => context.go(AppRoutes.discovery),
+                  child: const Text('Back to TVs'),
+                ),
+              ] else
+                Text(
+                  'Connecting…',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
             ],
           ],
         ),

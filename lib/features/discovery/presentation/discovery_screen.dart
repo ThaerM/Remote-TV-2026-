@@ -105,12 +105,18 @@ class _DeviceList extends ConsumerWidget {
                   .read(tvSessionControllerProvider.notifier)
                   .connect(device);
               if (!context.mounted) return;
+              final session = ref.read(tvSessionControllerProvider);
+              final error = session.lastError;
+              if (error != null && session.pairingRequest == null) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(SnackBar(content: Text(error)));
+                return;
+              }
               // Devices without a pairing step (Roku, Google Cast) are
               // already connected here; the pairing screen only reacts to
               // changes, so it would never move on for them.
-              final connected = ref
-                  .read(tvSessionControllerProvider)
-                  .isConnected;
+              final connected = session.isConnected;
               context.go(
                 connected ? AppRoutes.connectedSuccess : AppRoutes.pairing,
               );

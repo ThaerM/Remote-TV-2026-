@@ -153,7 +153,11 @@ class AndroidTvProvider implements TvProvider {
 
   @override
   Future<TvPairingRequest> connect(TvDevice device) async {
+    // Switching TVs (or re-selecting this one) must not leave the previous
+    // remote/pairing sockets open alongside the new ones.
+    await _closeSockets();
     _userDisconnected = false;
+    _reconnectAttempt = 0;
     _device = device;
     final host = device.host;
     if (host == null) {
@@ -188,6 +192,12 @@ class AndroidTvProvider implements TvProvider {
       identity: _identity!,
       timeout: AndroidTvConstants.connectTimeout,
     );
+    if (_userDisconnected) {
+      // Cancelled while the socket was opening.
+      await _pairingTransport?.close();
+      _pairingTransport = null;
+      throw const TvConnectionException('Pairing was cancelled.');
+    }
     _setState(TvConnectionState.pairingRequired);
     _pairingHandshake = PairingHandshake(_pairingTransport!);
     await _pairingHandshake!.start();
@@ -249,13 +259,29 @@ class AndroidTvProvider implements TvProvider {
     _remoteTransport = transport;
     _remoteSession = session;
 
-    unawaited(transport.done.then((error) => _handleDisconnect(error)));
-
-    await session.ready.timeout(
-      AndroidTvConstants.connectTimeout,
-      onTimeout: () =>
-          throw const ConnectionLostException('The TV did not become ready.'),
+    // Only the live transport may trigger a reconnect - a socket closed
+    // because the user switched TVs must not.
+    unawaited(
+      transport.done.then((error) {
+        if (identical(_remoteTransport, transport)) _handleDisconnect(error);
+      }),
     );
+
+    try {
+      await session.ready.timeout(
+        AndroidTvConstants.connectTimeout,
+        onTimeout: () =>
+            throw const ConnectionLostException('The TV did not become ready.'),
+      );
+    } catch (_) {
+      if (identical(_remoteTransport, transport)) {
+        _remoteSession = null;
+        _remoteTransport = null;
+      }
+      await session.dispose();
+      await transport.close();
+      rethrow;
+    }
     _reconnectAttempt = 0;
     _setState(TvConnectionState.connected);
   }
@@ -277,13 +303,22 @@ class AndroidTvProvider implements TvProvider {
     _scheduleReconnect();
   }
 
-  /// Controlled exponential backoff (1s, 2s, 4s, 8s, capped) rather than
+  /// Bounded exponential backoff (1s, 2s, 4s, 8s, 16s) rather than
   /// hammering the network or the TV while it's briefly unreachable
-  /// (backgrounded app, Wi-Fi blip, TV standby).
+  /// (backgrounded app, Wi-Fi blip, TV standby). After
+  /// [maxReconnectAttempts] the provider gives up and reports
+  /// [TvConnectionState.error] so the user can reconnect deliberately -
+  /// never an endless loop against a TV that is off or gone.
+  static const maxReconnectAttempts = 5;
+
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     final device = _device;
-    if (device?.host == null) {
+    if (device?.host == null || _reconnectAttempt >= maxReconnectAttempts) {
+      _logger.warning(
+        '[TV][CONNECTION][ANDROID_TV] reconnect_gave_up '
+        'attempts=$_reconnectAttempt',
+      );
       _setState(TvConnectionState.error);
       return;
     }
@@ -298,11 +333,23 @@ class AndroidTvProvider implements TvProvider {
       '[TV][CONNECTION][ANDROID_TV] reconnect_attempt=$_reconnectAttempt',
     );
 
+    if (_state != TvConnectionState.reconnecting) {
+      _setState(TvConnectionState.reconnecting);
+    }
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
       if (_userDisconnected) return;
       try {
         await _openRemoteConnection(device!.host!);
-      } on TvException {
+      } on AuthenticationFailedException {
+        // The TV no longer trusts this client - retrying cannot succeed;
+        // the user has to pair again.
+        _logger.warning('[TV][CONNECTION][ANDROID_TV] reconnect_auth_failed');
+        if (!_userDisconnected) _setState(TvConnectionState.error);
+      } catch (error) {
+        _logger.info(
+          '[TV][CONNECTION][ANDROID_TV] reconnect_failed '
+          'type=${error.runtimeType}',
+        );
         if (!_userDisconnected) _scheduleReconnect();
       }
     });
@@ -311,16 +358,25 @@ class AndroidTvProvider implements TvProvider {
   @override
   Future<void> disconnect() async {
     _userDisconnected = true;
+    await _closeSockets();
+    _setState(TvConnectionState.disconnected);
+  }
+
+  Future<void> _closeSockets() async {
     _reconnectTimer?.cancel();
-    await _remoteSession?.dispose();
-    await _remoteTransport?.close();
-    await _pairingHandshake?.dispose();
-    await _pairingTransport?.close();
+    _reconnectTimer = null;
+    final remoteSession = _remoteSession;
+    final remoteTransport = _remoteTransport;
+    final pairingHandshake = _pairingHandshake;
+    final pairingTransport = _pairingTransport;
     _remoteSession = null;
     _remoteTransport = null;
     _pairingHandshake = null;
     _pairingTransport = null;
-    _setState(TvConnectionState.disconnected);
+    await remoteSession?.dispose();
+    await remoteTransport?.close();
+    await pairingHandshake?.dispose();
+    await pairingTransport?.close();
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:remote_tv_2026/tv/domain/tv_domain.dart';
 
 /// Minimal scripted [TvProvider] for registry/controller/screen tests that
@@ -9,6 +11,10 @@ class StubTvProvider implements TvProvider {
     this.discoverError,
     this.probeResult,
     this.probeError,
+    this.capabilities = TvCapabilities.none,
+    this.connectError,
+    this.commandError,
+    this.pairingRequest,
   });
 
   @override
@@ -18,6 +24,15 @@ class StubTvProvider implements TvProvider {
   TvDevice? probeResult;
   final Object? probeError;
   final probedHosts = <String>[];
+  TvCapabilities capabilities;
+  Object? connectError;
+  Object? commandError;
+
+  /// When set, [connect] asks for this pairing instead of connecting.
+  TvPairingRequest? pairingRequest;
+  int connectCalls = 0;
+  int disconnectCalls = 0;
+  final _states = StreamController<TvConnectionState>.broadcast();
 
   @override
   Future<TvDiscoveryOutcome> discover() async {
@@ -32,24 +47,39 @@ class StubTvProvider implements TvProvider {
     return probeResult;
   }
 
+  /// Pairingless by default: reports connected as soon as [connect] is
+  /// called, unless [connectError] or [pairingRequest] is set.
   @override
-  Future<TvPairingRequest> connect(TvDevice device) async =>
-      TvPairingRequest.none;
+  Future<TvPairingRequest> connect(TvDevice device) async {
+    connectCalls++;
+    if (connectError != null) throw connectError!;
+    if (pairingRequest case final request?) {
+      _states.add(TvConnectionState.pairingRequired);
+      return request;
+    }
+    _states.add(TvConnectionState.connected);
+    return TvPairingRequest.none;
+  }
 
   @override
   Future<void> submitPairingCode(String code) async {}
 
   @override
-  Future<void> disconnect() async {}
+  Future<void> disconnect() async {
+    disconnectCalls++;
+    _states.add(TvConnectionState.disconnected);
+  }
 
   @override
-  Stream<TvConnectionState> get connectionState => const Stream.empty();
+  Stream<TvConnectionState> get connectionState => _states.stream;
 
   @override
-  Future<TvCapabilities> getCapabilities() async => TvCapabilities.none;
+  Future<TvCapabilities> getCapabilities() async => capabilities;
 
   @override
-  Future<void> sendCommand(TvCommand command) async {}
+  Future<void> sendCommand(TvCommand command) async {
+    if (commandError != null) throw commandError!;
+  }
 
   @override
   Future<List<TvApplication>> getApplications() async => const [];

@@ -95,6 +95,9 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   TvProvider? _activeProvider;
 
   Future<void> discover() async {
+    // One scan at a time: overlapping scans would contend for the same
+    // mDNS/SSDP sockets and native Bonjour browsers.
+    if (state.isDiscovering) return;
     state = state.copyWith(
       isDiscovering: true,
       clearError: true,
@@ -120,13 +123,21 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   final List<TvDevice> _manualDevices = [];
 
   /// Keeps devices the user added by address visible across rescans, since
-  /// discovery by definition can't see them.
+  /// discovery by definition can't see them. A manual entry is dropped once
+  /// discovery finds the same service (same platform at the same host)
+  /// under its discovered identity, so one TV never shows twice.
   List<TvDevice> _withManualDevices(List<TvDevice> discovered) {
-    final ids = {for (final d in discovered) d.id};
+    bool alreadyFound(TvDevice manual) => discovered.any(
+      (d) =>
+          d.id == manual.id ||
+          (d.platform == manual.platform &&
+              d.host != null &&
+              d.host == manual.host),
+    );
     return [
       ...discovered,
       for (final d in _manualDevices)
-        if (!ids.contains(d.id)) d,
+        if (!alreadyFound(d)) d,
     ];
   }
 
@@ -167,6 +178,19 @@ class TvSessionController extends StateNotifier<TvSessionState> {
       state = state.copyWith(lastError: 'Unsupported device platform.');
       return;
     }
+    final previous = _activeProvider;
+    if (previous != null && !identical(previous, provider)) {
+      // Switching to a TV owned by another provider: close the old
+      // connection instead of leaving it running in the background.
+      try {
+        await previous.disconnect();
+      } catch (error) {
+        _logger.warning(
+          '[TV][CONNECTION] previous_disconnect_failed '
+          'type=${error.runtimeType}',
+        );
+      }
+    }
     _activeProvider = provider;
     unawaited(_connectionSub?.cancel());
     _connectionSub = provider.connectionState.listen((connectionState) {
@@ -186,16 +210,24 @@ class TvSessionController extends StateNotifier<TvSessionState> {
       });
     }
 
+    // The previous device's controls must never render for the new one.
     state = state.copyWith(
       selectedDevice: device,
+      capabilities: TvCapabilities.none,
+      applications: const [],
+      clearPairingRequest: true,
       clearError: true,
       clearMediaStatus: true,
     );
     try {
       final pairingRequest = await provider.connect(device);
+      if (!identical(_activeProvider, provider)) return;
       state = state.copyWith(pairingRequest: pairingRequest);
     } catch (error) {
-      _logger.warning('Connect failed: $error');
+      _logger.warning(
+        '[TV][CONNECTION] connect_failed platform=${device.platform.name} '
+        'type=${error.runtimeType}',
+      );
       state = state.copyWith(lastError: 'Could not connect to ${device.name}.');
     }
   }
@@ -203,24 +235,45 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   Future<void> submitPairingCode(String code) async {
     final provider = _activeProvider;
     if (provider == null) return;
+    state = state.copyWith(clearError: true);
     try {
       await provider.submitPairingCode(code);
       state = state.copyWith(clearPairingRequest: true, clearError: true);
+    } on PairingTimeoutException {
+      _logger.warning('[TV][PAIRING] submit_timed_out');
+      state = state.copyWith(
+        lastError: 'The TV did not respond. Go back and select it again.',
+      );
     } catch (error) {
-      _logger.warning('Pairing failed: $error');
+      // Never log the code or the error text (which could echo it).
+      _logger.warning('[TV][PAIRING] submit_failed type=${error.runtimeType}');
       state = state.copyWith(lastError: 'Incorrect pairing code.');
     }
+  }
+
+  /// Abandons an unfinished pairing (the user left the pairing screen), so
+  /// the TV's pairing socket doesn't stay open behind the user's back.
+  Future<void> cancelPairing() async {
+    if (_activeProvider == null || state.isConnected) return;
+    await disconnect();
   }
 
   Future<void> _loadConnectedDeviceDetails() async {
     final provider = _activeProvider;
     if (provider == null) return;
-    final capabilities = await provider.getCapabilities();
-    final applications = await provider.getApplications();
-    state = state.copyWith(
-      capabilities: capabilities,
-      applications: applications,
-    );
+    try {
+      final capabilities = await provider.getCapabilities();
+      final applications = await provider.getApplications();
+      if (!identical(_activeProvider, provider) || !mounted) return;
+      state = state.copyWith(
+        capabilities: capabilities,
+        applications: applications,
+      );
+    } catch (error) {
+      _logger.warning(
+        '[TV][CONNECTION] details_failed type=${error.runtimeType}',
+      );
+    }
   }
 
   Future<void> sendCommand(TvCommand command) async {
@@ -232,8 +285,19 @@ class TvSessionController extends StateNotifier<TvSessionState> {
     try {
       await provider.sendCommand(command);
     } on TvException catch (error) {
-      _logger.warning('Command failed: ${error.message}');
+      // Type and command kind only: a text command's payload is whatever
+      // the user typed.
+      _logger.warning(
+        '[TV][COMMAND] failed type=${error.runtimeType} '
+        'command=${command.type.name}',
+      );
       state = state.copyWith(lastError: error.message);
+    } catch (error) {
+      _logger.warning(
+        '[TV][COMMAND] failed type=${error.runtimeType} '
+        'command=${command.type.name}',
+      );
+      state = state.copyWith(lastError: 'The TV did not accept that command.');
     }
   }
 
@@ -270,17 +334,31 @@ class TvSessionController extends StateNotifier<TvSessionState> {
     } on TvException catch (error) {
       _logger.warning('[TV][CAST] action_failed type=${error.runtimeType}');
       return error.message;
+    } catch (error) {
+      _logger.warning('[TV][CAST] action_failed type=${error.runtimeType}');
+      return 'The TV could not complete that action.';
     }
   }
 
   Future<void> disconnect() async {
-    await _activeProvider?.disconnect();
+    final provider = _activeProvider;
+    _activeProvider = null;
     await _connectionSub?.cancel();
     _connectionSub = null;
     await _mediaSub?.cancel();
     _mediaSub = null;
-    _activeProvider = null;
-    state = const TvSessionState();
+    try {
+      await provider?.disconnect();
+    } catch (error) {
+      _logger.warning(
+        '[TV][CONNECTION] disconnect_failed type=${error.runtimeType}',
+      );
+    }
+    // Keep the scan results: the TVs are still on the network.
+    state = TvSessionState(
+      discoveredDevices: state.discoveredDevices,
+      discoveryIssue: state.discoveryIssue,
+    );
   }
 
   @override

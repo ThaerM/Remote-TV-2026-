@@ -165,19 +165,11 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
 
     try {
       querier = _querierFactory();
-      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=before_client_start');
       final start = await _startWithDeadline(querier, deadline);
       final outcome = start.outcome;
       issue = start.issue;
-      _logger.info(
-        '[TV][DISCOVERY][$_logTag] checkpoint=after_client_start outcome=${outcome.name}',
-      );
       if (outcome == _StartOutcome.started) {
-        _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=before_ptr_collect');
         final ptrRecords = await _collectPtrRecords(querier, deadline);
-        _logger.info(
-          '[TV][DISCOVERY][$_logTag] checkpoint=after_ptr_collect count=${ptrRecords.length}',
-        );
         if (ptrRecords.isEmpty) {
           _logger.warning(
             '[TV][DISCOVERY][$_logTag] resolve_failed stage=PTR reason=ptr_empty',
@@ -206,10 +198,8 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
         'error=${_describe(error)}',
       );
     } finally {
-      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=finally_stop_start');
       if (querier != null) _safeStop(querier);
       await _multicastLock.release();
-      _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=finally_stop_done');
     }
 
     final devices = results.values.toList(growable: false);
@@ -265,9 +255,6 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
     unawaited(
       startFuture.then(
         (_) {
-          _logger.info(
-            '[TV][DISCOVERY][$_logTag] checkpoint=start_future_completed',
-          );
           if (!completer.isCompleted) {
             completer.complete((outcome: _StartOutcome.started, issue: null));
           }
@@ -280,11 +267,10 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
         },
       ),
     );
-    _logger.info('[TV][DISCOVERY][$_logTag] checkpoint=start_future_created');
     final timer = Timer(remaining, () {
       if (!completer.isCompleted) {
         _logger.warning(
-          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=client_start',
+          '[TV][DISCOVERY][$_logTag] deadline_fired stage=client_start',
         );
         completer.complete((
           outcome: _StartOutcome.timedOut,
@@ -329,9 +315,7 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
     final completer = Completer<void>();
     final timer = Timer(remaining, () {
       if (!completer.isCompleted) {
-        _logger.info(
-          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=ptr',
-        );
+        _logger.info('[TV][DISCOVERY][$_logTag] deadline_fired stage=ptr');
         completer.complete();
       }
     });
@@ -376,9 +360,6 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
     DateTime deadline,
   ) async {
     final friendlyName = _friendlyNameFrom(ptr.domainName);
-    _logger.info(
-      '[TV][DISCOVERY][$_logTag] checkpoint=before_srv_lookup instance=$friendlyName',
-    );
     final srv = await _collectFirst<SrvResourceRecord>(
       querier,
       ResourceRecordQuery.service(ptr.domainName),
@@ -452,7 +433,7 @@ class MdnsServiceDiscovery implements ServiceDiscovery {
     final timer = Timer(timeout, () {
       if (!completer.isCompleted) {
         _logger.warning(
-          '[TV][DISCOVERY][$_logTag] checkpoint=start_deadline_fired stage=$stage',
+          '[TV][DISCOVERY][$_logTag] deadline_fired stage=$stage',
         );
         completer.complete(null);
       }
