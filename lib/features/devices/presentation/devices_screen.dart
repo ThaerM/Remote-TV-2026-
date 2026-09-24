@@ -45,7 +45,7 @@ class DevicesScreen extends ConsumerWidget {
                 leading: const Icon(Icons.tv_off_rounded),
                 title: const Text('No TV connected'),
                 trailing: TextButton(
-                  onPressed: () => context.go(AppRoutes.discovery),
+                  onPressed: () => context.push(AppRoutes.discovery),
                   child: const Text('Find a TV'),
                 ),
               ),
@@ -90,7 +90,7 @@ class DevicesScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           OutlinedButton.icon(
-            onPressed: () => context.go(AppRoutes.discovery),
+            onPressed: () => context.push(AppRoutes.discovery),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Add another TV'),
           ),

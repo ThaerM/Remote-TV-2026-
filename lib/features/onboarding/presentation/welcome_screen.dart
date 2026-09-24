@@ -1,21 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
+import '../application/onboarding_state.dart';
 
 /// First screen of the first-run journey: explains the local-network
 /// requirement before asking for any permission or starting a scan.
 /// See docs/product/screen-inventory.md for the full flow.
-class WelcomeScreen extends StatefulWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen>
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glow = AnimationController(
     vsync: this,
@@ -28,18 +32,24 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     super.dispose();
   }
 
+  /// Either choice finishes onboarding; neither touches saved TVs.
+  void _leave(String route) {
+    unawaited(ref.read(onboardingStoreProvider).markCompleted());
+    context.go(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.of(context).disableAnimations;
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(),
+              const SizedBox(height: AppSpacing.sm),
               Center(
                 child: AnimatedBuilder(
                   animation: _glow,
@@ -88,14 +98,25 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 icon: Icons.privacy_tip_outlined,
                 text: "We'll ask for local network permission next, used only to find your TVs.",
               ),
-              const Spacer(flex: 2),
+              const SizedBox(height: AppSpacing.lg),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => context.go(AppRoutes.discovery),
+                  onPressed: () => _leave(AppRoutes.discovery),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                     child: Text('Find my TV'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => _leave(AppRoutes.remote),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    child: Text('Explore app first'),
                   ),
                 ),
               ),

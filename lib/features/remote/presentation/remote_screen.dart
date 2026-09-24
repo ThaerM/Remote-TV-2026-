@@ -30,7 +30,7 @@ class RemoteScreen extends ConsumerWidget {
 
     if (session.selectedDevice == null) {
       return _NotConnectedState(
-        onFindTv: () => context.go(AppRoutes.discovery),
+        onFindTv: () => context.push(AppRoutes.discovery),
       );
     }
 
@@ -454,11 +454,23 @@ class _NotConnectedState extends StatelessWidget {
                 'No TV connected',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                "Connect a compatible TV when you're ready.",
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
                 onPressed: onFindTv,
                 icon: const Icon(Icons.search_rounded),
-                label: const Text('Find a TV'),
+                label: const Text('Connect TV'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'You can explore the app before connecting a device.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),

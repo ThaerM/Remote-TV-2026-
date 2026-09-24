@@ -38,7 +38,7 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.tv_off_rounded),
               title: const Text('No TV connected'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go(AppRoutes.discovery),
+              onTap: () => context.push(AppRoutes.discovery),
             ),
           const Divider(),
           const SectionHeader('Appearance'),

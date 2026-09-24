@@ -37,7 +37,17 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final session = ref.watch(tvSessionControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Find your TV')),
+      appBar: AppBar(
+        title: const Text('Find your TV'),
+        // Reached from Welcome with nothing underneath: Back still leads
+        // into the app rather than trapping the user here.
+        // Navigator (not GoRouter.canPop): go_router pushes onto the same
+        // Navigator, and this must render correctly with no router in
+        // context too (widget tests mount this screen standalone).
+        leading: Navigator.of(context).canPop()
+            ? null
+            : BackButton(onPressed: () => context.go(AppRoutes.remote)),
+      ),
       body: session.isDiscovering
           ? const _ScanningState()
           : session.discoveredDevices.isEmpty

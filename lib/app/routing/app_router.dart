@@ -6,6 +6,7 @@ import '../../features/apps/presentation/apps_screen.dart';
 import '../../features/casting/presentation/cast_screen.dart';
 import '../../features/devices/presentation/devices_screen.dart';
 import '../../features/discovery/presentation/discovery_screen.dart';
+import '../../features/onboarding/application/onboarding_state.dart';
 import '../../features/onboarding/presentation/welcome_screen.dart';
 import '../../features/pairing/presentation/connected_success_screen.dart';
 import '../../features/pairing/presentation/pairing_screen.dart';
@@ -33,8 +34,11 @@ abstract final class AppRoutes {
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // After the first run the app opens straight into the main shell; a TV
+  // is never required to get in.
+  final onboarded = ref.read(onboardingCompletedAtLaunchProvider);
   return GoRouter(
-    initialLocation: AppRoutes.welcome,
+    initialLocation: onboarded ? AppRoutes.remote : AppRoutes.welcome,
     routes: [
       GoRoute(
         path: AppRoutes.welcome,

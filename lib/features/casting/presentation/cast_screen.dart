@@ -29,7 +29,7 @@ class CastScreen extends ConsumerWidget {
                   'Connect to a Chromecast, a Google TV or another Cast-enabled '
                   'device. They appear as "Google Cast" in Find your TV.',
               action: FilledButton(
-                onPressed: () => context.go(AppRoutes.discovery),
+                onPressed: () => context.push(AppRoutes.discovery),
                 child: const Text('Find a device'),
               ),
             )
