@@ -9,9 +9,9 @@ writing no provider has passed its real-device pass**
 | Feature | Platform(s) | Implemented | Unit-tested | Real device | Remaining risk |
 |---|---|---|---|---|---|
 | Android TV discovery | iOS (system Bonjour), Android (mDNS + multicast lock) | Yes | Yes | **No - Gate A** | iOS bridge only compile-verified in CI |
-| Android TV pairing (TLS, 6-char code) | Both | Yes | Yes | **No - Gate B** | Real TV cert/handshake behavior |
+| Android TV pairing (TLS, 6-char hex code, cancel) | Both | Yes | Yes | **No - Gate B** | Real TV cert/handshake behavior |
 | Android TV remote commands | Both | Yes | Yes | **No - Gate C** | Key coverage per TV model |
-| Android TV reconnect | Both | Yes (bounded backoff) | Yes | **No - Gate D** | Real network timing |
+| Android TV reconnect | Both | Yes (5 attempts, 1-16 s backoff, then error) | Yes | **No - Gate D** | Real network timing |
 | Google Cast (discover, URL cast, playback, volume) | Both | Yes (CASTV2, ADR-004) | Yes | No | Not Google-sanctioned; real receivers |
 | Roku (ECP) | Android: SSDP; iOS: Add by IP | Yes | Yes | No | iOS SSDP needs multicast entitlement |
 | LG webOS (SSAP) | Android: SSDP; iOS: Add by IP | Yes | Yes | No | ws vs wss per firmware |

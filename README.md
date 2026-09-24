@@ -5,6 +5,12 @@ with Flutter.
 
 ## Project status
 
+**v1.0.0 RC1** (`release/1.0.0-rc1`), feature-frozen. What's left before
+store submission: [`docs/release/release-checklist.md`](docs/release/release-checklist.md).
+Public pages: [privacy policy](docs/privacy-policy.md) ·
+[support](docs/support.md). Developer: Thaer Mosa
+(<https://thaerm.github.io/>).
+
 Six real providers are implemented - **none has passed its real-device
 test yet**, so treat every one as "implemented and unit-tested, not
 proven on hardware". The honest, row-by-row picture is in

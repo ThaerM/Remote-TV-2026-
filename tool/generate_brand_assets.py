@@ -11,6 +11,8 @@ manufacturer logos.
 
 Outputs (overwritten):
   assets/branding/app_icon_master_1024.png     App Store master (no alpha)
+  assets/branding/play_store_icon_512.png      Google Play listing icon
+  assets/branding/play_feature_graphic_1024x500.png
   ios/Runner/Assets.xcassets/AppIcon.appiconset/*
   ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage*.png
   android/app/src/main/res/mipmap-*/ic_launcher*.png
@@ -154,6 +156,16 @@ def main() -> None:
     # Full-bleed square icon; iOS applies its own mask. The mark fills ~62%.
     master = compose(1024, 1024 * 0.62, background=True).convert("RGB")
     save(master, ROOT / "assets/branding/app_icon_master_1024.png")
+    save(
+        master.resize((512, 512), Image.LANCZOS),
+        ROOT / "assets/branding/play_store_icon_512.png",
+    )
+    # Play feature graphic: the mark centred on a wide graphite banner.
+    banner = graphite_background(1024).resize((1024, 1024), Image.LANCZOS)
+    banner = banner.crop((0, 262, 1024, 762))
+    mark = compose(420, 420 * 0.9, background=False)
+    banner.paste(mark, ((1024 - 420) // 2, (500 - 420) // 2), mark)
+    save(banner, ROOT / "assets/branding/play_feature_graphic_1024x500.png")
 
     # iOS AppIcon set: every size listed in Contents.json, from the master.
     icon_set = ROOT / "ios/Runner/Assets.xcassets/AppIcon.appiconset"

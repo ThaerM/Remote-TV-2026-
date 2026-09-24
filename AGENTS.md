@@ -12,6 +12,15 @@ protocol inside its own provider - **not** one shared network protocol.
 
 ## Current phase
 
+**v1.0.0 release candidate (RC1)** - feature-frozen. Only integration
+stability, real-device readiness, store readiness and release quality
+work; no new providers or features. Release state:
+`docs/release/release-checklist.md`; device gates:
+`docs/testing/rc1-device-checklist.md`. Bundle/application ID
+`com.thaerm.remotetv2026` (don't change it). Icons/launch images come
+from `tool/generate_brand_assets.py`, and the public privacy/support pages
+from `tool/build_pages.py` (edit the `.md`, never the `.html`).
+
 Six real providers exist - Android TV/Google TV, Google Cast (Dart CASTV2,
 see ADR-004), Roku (ECP), LG webOS (SSAP), Samsung Tizen, DLNA - plus
 `FakeTvProvider`. **None has passed its real-device pass yet**

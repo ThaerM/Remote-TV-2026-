@@ -42,11 +42,16 @@ Pass = the TV is listed by scanning (not only by IP).
 
 ## Gate B - Android TV pairing (blocking)
 
-1. Tap **Family room TV**. The TV shows a 6-character code.
+1. Tap **Family room TV**. The TV shows a 6-character **hex** code (0-9,
+   A-F). The app's keyboard must allow letters (fixed in RC1: the field
+   used to accept digits only).
 2. Enter it. Expect `[TV][PAIRING]...` success, the Connected screen, then
    the Remote.
 3. Wrong code: enter a wrong one first - the digits shake, an error shows,
    the TV keeps its code; then enter the right one.
+3b. Cancel: on the code screen press **Cancel** (or Back) - the app returns
+   to Find your TV and the TV's code dialog closes; selecting the TV again
+   shows a new code.
 4. Kill the app, reopen, connect again - **no code** should be asked
    (identity is in the Keychain/Keystore).
 5. Devices > Forget -> connect again -> the TV asks for a code again.
@@ -70,7 +75,10 @@ tap = OK, press-and-hold volume repeats and stops on release.
 2. Turn the phone's Wi-Fi off 10 s, on -> `reconnecting` then `connected`
    within ~30 s, no duplicate sessions in the logs.
 3. Power-cycle the TV -> the app shows reconnecting, then connected (or a
-   clear error) - no endless retry loop.
+   clear error) - no endless retry loop: at most 5 `reconnect_attempt=`
+   lines (1+2+4+8+16 s), then `reconnect_gave_up`.
+3b. Switch to another TV (e.g. the Google Cast entry) and back - the old
+   connection is closed, no duplicate sessions.
 4. Force-quit the app, reopen -> the remembered TV reconnects.
 
 **Android TV is production-ready only when Gates A-D pass.**
