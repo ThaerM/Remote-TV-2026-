@@ -116,6 +116,32 @@ void main() {
     });
   });
 
+  testWidgets('with reduced motion, found TVs appear without animating', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(
+      _app(
+        StubTvProvider(
+          platform: TvPlatform.androidTv,
+          outcome: const TvDiscoveryOutcome(devices: [_manualTv]),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final opacity = tester.widget<Opacity>(
+      find.ancestor(
+        of: find.text('Android TV (192.168.1.42)'),
+        matching: find.byType(Opacity),
+      ),
+    );
+    expect(opacity.opacity, 1);
+  });
+
   group('TvSessionController manual devices', () {
     test('a manually added TV survives a rescan', () async {
       final provider = StubTvProvider(
