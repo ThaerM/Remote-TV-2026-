@@ -19,6 +19,7 @@ class TvSessionState {
     this.connectionState = TvConnectionState.disconnected,
     this.capabilities = TvCapabilities.none,
     this.applications = const [],
+    this.mediaStatus,
     this.lastError,
   });
 
@@ -35,6 +36,9 @@ class TvSessionState {
   final TvConnectionState connectionState;
   final TvCapabilities capabilities;
   final List<TvApplication> applications;
+
+  /// What a casting-capable device is playing, when it reports it.
+  final TvMediaStatus? mediaStatus;
   final String? lastError;
 
   bool get isConnected => connectionState == TvConnectionState.connected;
@@ -51,6 +55,8 @@ class TvSessionState {
     TvConnectionState? connectionState,
     TvCapabilities? capabilities,
     List<TvApplication>? applications,
+    TvMediaStatus? mediaStatus,
+    bool clearMediaStatus = false,
     String? lastError,
     bool clearError = false,
   }) {
@@ -68,6 +74,7 @@ class TvSessionState {
       connectionState: connectionState ?? this.connectionState,
       capabilities: capabilities ?? this.capabilities,
       applications: applications ?? this.applications,
+      mediaStatus: clearMediaStatus ? null : (mediaStatus ?? this.mediaStatus),
       lastError: clearError ? null : (lastError ?? this.lastError),
     );
   }
@@ -84,6 +91,7 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   final Ref _ref;
   final AppLogger _logger;
   StreamSubscription<TvConnectionState>? _connectionSub;
+  StreamSubscription<TvMediaStatus?>? _mediaSub;
   TvProvider? _activeProvider;
 
   Future<void> discover() async {
@@ -168,7 +176,21 @@ class TvSessionController extends StateNotifier<TvSessionState> {
       }
     });
 
-    state = state.copyWith(selectedDevice: device, clearError: true);
+    unawaited(_mediaSub?.cancel());
+    _mediaSub = null;
+    if (provider case final TvMediaCaster caster) {
+      _mediaSub = caster.mediaStatus.listen((status) {
+        state = status == null
+            ? state.copyWith(clearMediaStatus: true)
+            : state.copyWith(mediaStatus: status);
+      });
+    }
+
+    state = state.copyWith(
+      selectedDevice: device,
+      clearError: true,
+      clearMediaStatus: true,
+    );
     try {
       final pairingRequest = await provider.connect(device);
       state = state.copyWith(pairingRequest: pairingRequest);
@@ -215,10 +237,48 @@ class TvSessionController extends StateNotifier<TvSessionState> {
     }
   }
 
+  /// The active provider's casting surface, when the connected device can
+  /// cast. Capability-gated - never a platform check.
+  TvMediaCaster? get _caster {
+    if (!state.capabilities.casting) return null;
+    return switch (_activeProvider) {
+      final TvMediaCaster caster => caster,
+      _ => null,
+    };
+  }
+
+  /// Returns a human-readable error, or null on success.
+  Future<String?> castMedia(TvMediaItem item) =>
+      _mediaAction((caster) => caster.castMedia(item));
+
+  Future<String?> togglePlayback() =>
+      _mediaAction((caster) => caster.togglePlayback());
+
+  Future<String?> seekMedia(Duration position) =>
+      _mediaAction((caster) => caster.seek(position));
+
+  Future<String?> stopMedia() => _mediaAction((caster) => caster.stopMedia());
+
+  Future<String?> _mediaAction(
+    Future<void> Function(TvMediaCaster caster) action,
+  ) async {
+    final caster = _caster;
+    if (caster == null) return 'This TV does not support casting.';
+    try {
+      await action(caster);
+      return null;
+    } on TvException catch (error) {
+      _logger.warning('[TV][CAST] action_failed type=${error.runtimeType}');
+      return error.message;
+    }
+  }
+
   Future<void> disconnect() async {
     await _activeProvider?.disconnect();
     await _connectionSub?.cancel();
     _connectionSub = null;
+    await _mediaSub?.cancel();
+    _mediaSub = null;
     _activeProvider = null;
     state = const TvSessionState();
   }
@@ -226,6 +286,7 @@ class TvSessionController extends StateNotifier<TvSessionState> {
   @override
   void dispose() {
     unawaited(_connectionSub?.cancel());
+    unawaited(_mediaSub?.cancel());
     super.dispose();
   }
 }

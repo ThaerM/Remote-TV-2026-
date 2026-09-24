@@ -11,6 +11,7 @@ class TvDevice {
     required this.name,
     required this.platform,
     this.host,
+    this.port,
     this.iconKey,
     this.isDevelopmentFake = false,
   });
@@ -21,6 +22,10 @@ class TvDevice {
 
   /// IP address or hostname on the local network, when known.
   final String? host;
+
+  /// The service port when it isn't the protocol's fixed default (e.g. a
+  /// Google Cast group advertises its own port).
+  final int? port;
 
   /// A hint for which icon/model illustration to show for this device.
   final String? iconKey;
@@ -34,6 +39,7 @@ class TvDevice {
     String? name,
     TvPlatform? platform,
     String? host,
+    int? port,
     String? iconKey,
     bool? isDevelopmentFake,
   }) {
@@ -42,6 +48,7 @@ class TvDevice {
       name: name ?? this.name,
       platform: platform ?? this.platform,
       host: host ?? this.host,
+      port: port ?? this.port,
       iconKey: iconKey ?? this.iconKey,
       isDevelopmentFake: isDevelopmentFake ?? this.isDevelopmentFake,
     );
@@ -56,12 +63,13 @@ class TvDevice {
           name == other.name &&
           platform == other.platform &&
           host == other.host &&
+          port == other.port &&
           iconKey == other.iconKey &&
           isDevelopmentFake == other.isDevelopmentFake;
 
   @override
   int get hashCode =>
-      Object.hash(id, name, platform, host, iconKey, isDevelopmentFake);
+      Object.hash(id, name, platform, host, port, iconKey, isDevelopmentFake);
 
   @override
   String toString() => 'TvDevice($name, platform: $platform, id: $id)';

@@ -75,6 +75,12 @@ class ConnectionLostException extends TvException {
   const ConnectionLostException(super.message);
 }
 
+/// A playback command (play/pause/seek/stop) was sent to a casting device
+/// that has nothing loaded, or the device rejected the media.
+class TvMediaSessionException extends TvException {
+  const TvMediaSessionException(super.message);
+}
+
 /// A message could not be parsed/encoded, or the device responded with a
 /// protocol-level error - distinct from a transport-level failure.
 class ProtocolErrorException extends TvException {
