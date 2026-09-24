@@ -141,9 +141,18 @@ class _StaggeredEntranceState extends State<_StaggeredEntrance>
     duration: AppMotion.connection,
   );
 
+  var _started = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Reduced motion: cards appear in place, no fade/slide.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+      return;
+    }
     final delay = Duration(milliseconds: 40 * widget.index.clamp(0, 6));
     Future.delayed(delay, () {
       if (mounted) _controller.forward();
