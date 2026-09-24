@@ -27,7 +27,7 @@ submitted to either store.
 | **iOS signing** | MANUAL | Team `KE2TDZEG3K`, automatic signing, set for Debug/Release/Profile. Needs an Apple Distribution certificate + App Store profile on the Mac: Xcode → Product → Archive → Distribute |
 | **Multicast entitlement (iOS)** | NOT REQUIRED for 1.0 (owner decision) | Not requested and not added. Android TV and Google Cast use system Bonjour. Roku/LG/Samsung are added by IP on iOS, and DLNA is Android-only. Request it later if automatic SSDP discovery on iOS is wanted |
 | **iPad** | MANUAL decision | The app supports iPad (`TARGETED_DEVICE_FAMILY 1,2`), so iPad screenshots are required. Or make it iPhone-only before the *first* submission |
-| **Tests** | DONE | `flutter test`: 252 passing (was 232). New: session switching and duplicate identity, bounded Android TV reconnect, hex pairing codes, pairing cancel, About |
+| **Tests** | DONE | `flutter test`: 272 passing (was 232). New: session switching and duplicate identity, bounded Android TV reconnect, hex pairing-code validation (A4F29C, a4f29c→A4F29C, 123456, G12345, special characters, length, paste), pairing cancel, About |
 | **Goldens** | DONE | 14 goldens (13 + About), rendered with Flutter 3.47.5, as pinned in CI |
 | **Format / analyze** | DONE | `dart format --set-exit-if-changed .` clean; `flutter analyze` 0 issues |
 | **Android build** | DONE in CI | CI `flutter build apk --debug` on the RC branch. `flutter build apk --release` / `appbundle --release` need the Android SDK. Run them locally after signing is set up |

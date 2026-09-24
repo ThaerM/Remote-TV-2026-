@@ -44,12 +44,19 @@ flutter run --release -d 00008150-001E61083C6A401C
 
 ## Gate B — Pairing
 
-- [ ] Tap **Family room TV** → TV shows a 6-character code; app shows 6 boxes
-      and "It can contain the letters A–F as well as numbers".
-- [ ] The keyboard lets you type letters: enter a **wrong** code → boxes shake,
-      "Incorrect pairing code.", TV keeps showing its code.
-- [ ] Enter the **correct** code (letters in lower case are fine; they're
-      shown in upper case) → Connected screen → Remote.
+- [ ] Tap **Family room TV** → TV shows a 6-character **hex** code (0-9, A-F,
+      e.g. `A4F29C`). App: "Enter the 6-character pairing code shown on your
+      TV", six boxes, hint "Numbers 0-9 and letters A-F", **Paste code**.
+- [ ] Keyboard has letters (not a number pad). `G`, `-`, `!` can't be typed;
+      a 7th character is refused.
+- [ ] Enter a **wrong** valid-looking code → boxes shake, "Incorrect pairing
+      code.", TV keeps showing its code.
+- [ ] Enter the **correct** code in lower case → shown upper case →
+      Connected screen → Remote.
+- [ ] Paste: type the TV's code in Notes, copy it, next pairing tap
+      **Paste code** → fills and pairs. Copy `G12345` → Paste → refused with
+      a message.
+- [ ] VoiceOver on: the field is read as "Pairing code", not "PIN".
 - [ ] Cancel: start pairing again on a fresh app install (or after Forget),
       press **Back** on the code screen → the code disappears from the TV
       within a few seconds; selecting the TV again shows a new code.

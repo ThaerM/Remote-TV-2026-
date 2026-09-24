@@ -61,8 +61,12 @@ class StubTvProvider implements TvProvider {
     return TvPairingRequest.none;
   }
 
+  final submittedCodes = <String>[];
+
   @override
-  Future<void> submitPairingCode(String code) async {}
+  Future<void> submitPairingCode(String code) async {
+    submittedCodes.add(code);
+  }
 
   @override
   Future<void> disconnect() async {

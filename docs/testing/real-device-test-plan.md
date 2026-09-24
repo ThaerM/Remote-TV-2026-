@@ -42,13 +42,21 @@ Pass = the TV is listed by scanning (not only by IP).
 
 ## Gate B - Android TV pairing (blocking)
 
-1. Tap **Family room TV**. The TV shows a 6-character **hex** code (0-9,
-   A-F). The app's keyboard must allow letters (fixed in RC1: the field
-   used to accept digits only).
-2. Enter it. Expect `[TV][PAIRING]...` success, the Connected screen, then
-   the Remote.
-3. Wrong code: enter a wrong one first - the digits shake, an error shows,
-   the TV keeps its code; then enter the right one.
+1. Tap **Family room TV**. The TV shows a 6-character **hexadecimal**
+   pairing code: 0-9 and A-F, e.g. `A4F29C`, `7B13E9`, `00D8AF`. It is
+   not a numeric PIN. The app shows "Enter the 6-character pairing code
+   shown on your TV", six empty boxes, a letters+digits keyboard (not a
+   number pad), and a **Paste code** button.
+2. Enter it (lower case is fine: `a4f29c` becomes `A4F29C`). Expect
+   `[TV][PAIRING]...` success, the Connected screen, then the Remote.
+2b. Input checks (nothing is sent to the TV until all 6 are valid): `G`,
+   `-`, `!` and spaces can't be typed; a 7th character is refused;
+   copying the code (e.g. from Notes) and tapping **Paste code** fills
+   and submits it; pasting `G12345` shows "The copied text isn't a
+   6-character pairing code."
+3. Wrong code: enter a wrong valid-looking one first - the boxes shake,
+   "Incorrect pairing code." shows, the TV keeps its code; then enter the
+   right one.
 3b. Cancel: on the code screen press **Cancel** (or Back) - the app returns
    to Find your TV and the TV's code dialog closes; selecting the TV again
    shows a new code.

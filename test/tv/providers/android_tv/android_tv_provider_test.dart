@@ -199,6 +199,30 @@ void main() {
       provider.dispose();
     });
 
+    test('a lower-case code is accepted (the TV shows upper case)', () async {
+      final clientIdentity = AndroidTvIdentity.generate();
+      final serverIdentity = AndroidTvIdentity.generate();
+      final scripted = _ScriptedTransports(peerIdentity: serverIdentity);
+      final provider = AndroidTvProvider(
+        store: AndroidTvPairedDeviceStore(
+          secureStore: InMemoryCredentialStore(),
+        ),
+        connect: scripted.connect,
+        generateIdentity: () => clientIdentity,
+      );
+      final states = <TvConnectionState>[];
+      final sub = provider.connectionState.listen(states.add);
+
+      await provider.connect(device);
+      final validCode = findValidCode(clientIdentity, serverIdentity);
+      await provider.submitPairingCode(validCode.toLowerCase());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(states.last, TvConnectionState.connected);
+      await sub.cancel();
+      provider.dispose();
+    });
+
     test('a wrong pairing code is rejected without connecting', () async {
       final clientIdentity = AndroidTvIdentity.generate();
       final serverIdentity = AndroidTvIdentity.generate();

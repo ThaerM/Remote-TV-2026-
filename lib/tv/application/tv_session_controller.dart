@@ -232,9 +232,23 @@ class TvSessionController extends StateNotifier<TvSessionState> {
     }
   }
 
-  Future<void> submitPairingCode(String code) async {
+  Future<void> submitPairingCode(String input) async {
     final provider = _activeProvider;
     if (provider == null) return;
+    var code = input;
+    if (state.pairingRequest case final TvPinPairingRequest request) {
+      final valid = request.validate(input);
+      if (valid == null) {
+        // Rejected before anything is sent to the TV.
+        state = state.copyWith(
+          lastError:
+              'Enter the ${request.expectedLength}-character pairing code '
+              'shown on your TV.',
+        );
+        return;
+      }
+      code = valid;
+    }
     state = state.copyWith(clearError: true);
     try {
       await provider.submitPairingCode(code);

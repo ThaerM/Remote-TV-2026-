@@ -222,7 +222,8 @@ class AndroidTvProvider implements TvProvider {
     }
 
     await handshake.submitCode(
-      pairingCode: code,
+      // The TV shows upper-case hex; accept either case.
+      pairingCode: code.trim().toUpperCase(),
       identity: identity,
       peerCertificatePem: transport.peerCertificatePem,
     );

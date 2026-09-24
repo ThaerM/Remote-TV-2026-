@@ -76,7 +76,10 @@ void main() {
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(find.text('Enter the code shown on your television.'), findsOne);
+    expect(
+      find.text('Enter the 6-character pairing code shown on your TV.'),
+      findsOne,
+    );
     expect(find.byType(BackButton), findsOneWidget);
 
     await tester.tap(find.text('Cancel'));

@@ -187,10 +187,10 @@ void main() {
     );
   });
 
-  testWidgets('pairing - PIN', (tester) async {
+  testWidgets('pairing - code', (tester) async {
     await _golden(
       tester,
-      'pairing_pin_dark',
+      'pairing_code_dark',
       const PairingScreen(),
       session: const TvSessionState(
         selectedDevice: _familyRoomTv,

@@ -62,7 +62,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
         context.go(AppRoutes.connectedSuccess);
         return;
       }
-      // A fresh, non-empty error while still awaiting a PIN means the
+      // A fresh, non-empty error while still awaiting a code means the
       // code we just submitted was rejected - play the error feedback
       // once per distinct error, not on every rebuild.
       if (next.lastError == null) _lastShownError = null;
@@ -94,14 +94,18 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Enter the code shown on your television.',
+                pairingRequest.alphabet == TvPinAlphabet.hex
+                    ? 'Enter the ${pairingRequest.expectedLength}-character '
+                          'pairing code shown on your TV.'
+                    : 'Enter the ${pairingRequest.expectedLength}-digit '
+                          'pairing code shown on your TV.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               if (pairingRequest.alphabet == TvPinAlphabet.hex) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'It can contain the letters A-F as well as numbers.',
+                  'Numbers 0-9 and letters A-F, for example A4F29C.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

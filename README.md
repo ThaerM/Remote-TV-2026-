@@ -44,7 +44,7 @@ only (`--dart-define=ENABLE_DEMO_TV_DEVICES=true`).
 - Discovery that always finishes and says why it missed TVs (local
   network denied, not on Wi-Fi, multicast restricted, timeout), plus
   **Add TV by IP address**
-- Flow: Welcome -> Find my TV -> Pairing (PIN or confirm-on-TV) ->
+- Flow: Welcome -> Find my TV -> Pairing (6-character code or confirm-on-TV) ->
   Connected -> Remote; Cast tab (media links, now playing); Devices;
   Settings (layout, behavior, theater mode, diagnostics)
 - Secrets only in Keychain/Keystore; local-first, no analytics - see

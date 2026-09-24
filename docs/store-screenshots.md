@@ -24,7 +24,7 @@ already shipped on iPad.
 |---|---|---|---|---|
 | 1 | Remote — D-pad | Connect to your Android TV → Remote tab | Connected, D-pad visible, device name in header | "The controls your TV supports" |
 | 2 | Discovery — TV found | Find your TV, after a scan on your Wi-Fi | Your real TV(s) listed with platform label | "Finds TVs on your Wi-Fi" |
-| 3 | Pairing | Select an unpaired Android TV | 6-box code entry, hint about A–F | "Secure one-time pairing" |
+| 3 | Pairing | Select an unpaired Android TV | 6-character hex code entry ("Numbers 0-9 and letters A-F"), a few characters typed, e.g. `A4F` | "Secure one-time pairing" |
 | 4 | Remote — Touchpad | Settings → Remote layout → Touchpad | Connected, touchpad surface | "Swipe to navigate" |
 | 5 | Cast | Connect to a Google Cast device → Cast tab | Link form, or Now Playing after casting a real link you're allowed to use | "Cast a media link" |
 | 6 | Devices | Devices tab | Your paired TV | "Your TVs, remembered" |

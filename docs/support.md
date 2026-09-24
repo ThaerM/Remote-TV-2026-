@@ -62,9 +62,11 @@ discovery method.
 ## Pairing problems
 
 - **Android TV / Google TV:** after you pick the TV, it shows a
-  6-character code. Enter it in the app. It can contain the letters
-  **A–F** as well as numbers. If the code is rejected, check it carefully
-  and try again. If the code disappears from the TV, go back and select
+  6-character pairing code made of numbers **0–9** and letters **A–F**
+  (for example `A4F29C`). Type it in the app (lower case is fine), or
+  copy it and tap **Paste code**. It is not a numeric PIN, so letters
+  are expected. If the code is rejected, check it carefully and try
+  again. If the code disappears from the TV, go back and select
   the TV again to get a new one.
 - **LG:** accept the "Remote TV 2026" prompt on the TV with its own
   remote.

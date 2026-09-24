@@ -186,4 +186,26 @@ void main() {
     expect(state().discoveredDevices, hasLength(2));
     expect(state().isDiscovering, isFalse);
   });
+
+  test('an invalid pairing code is rejected before reaching the TV', () async {
+    androidTv.pairingRequest = const TvPinPairingRequest(
+      expectedLength: 6,
+      alphabet: TvPinAlphabet.hex,
+    );
+    await controller().connect(googleTvRemote);
+
+    for (final bad in ['G12345', 'A4F29', 'A4F29C1', 'A4F-9C']) {
+      await controller().submitPairingCode(bad);
+      expect(
+        state().lastError,
+        'Enter the 6-character pairing code shown on your TV.',
+        reason: bad,
+      );
+    }
+    expect(androidTv.submittedCodes, isEmpty);
+
+    await controller().submitPairingCode('a4f29c');
+    expect(androidTv.submittedCodes, ['A4F29C']);
+    expect(state().lastError, isNull);
+  });
 }
