@@ -1,0 +1,61 @@
+name: Release builds
+
+# Release-mode compile checks for release branches. PR CI (flutter-ci.yml)
+# only builds debug. These builds are unsigned or debug-signed (no
+# key.properties / certificates in CI), so they prove the release
+# configuration compiles. They are not store uploads.
+on:
+  push:
+    branches: ['release/**']
+  workflow_dispatch:
+
+concurrency:
+  group: release-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-release:
+    name: Android release APK + AAB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Build release app bundle
+        run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release-debug-signed-not-for-store
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+  ios-release:
+    name: iOS release (no codesign)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+
+      - name: Build iOS release without code signing
+        run: flutter build ios --release --no-codesign
