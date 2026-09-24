@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/network/multicast_lock.dart';
 import '../android_tv_constants.dart';
 import 'android_tv_discovery.dart';
 
@@ -117,11 +118,15 @@ enum _StartOutcome { started, timedOut, failed }
 /// fresh [MdnsQuerier] is created per scan so one scan's wedged socket can
 /// never block the next.
 class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
-  MdnsAndroidTvDiscovery({MdnsQuerier Function()? querierFactory})
-    : _querierFactory = querierFactory ?? SystemMdnsQuerier.new,
-      _logger = AppLogger('TV.Discovery.mDNS.AndroidTV');
+  MdnsAndroidTvDiscovery({
+    MdnsQuerier Function()? querierFactory,
+    MulticastLock? multicastLock,
+  }) : _querierFactory = querierFactory ?? SystemMdnsQuerier.new,
+       _multicastLock = multicastLock ?? PlatformMulticastLock(),
+       _logger = AppLogger('TV.Discovery.mDNS.AndroidTV');
 
   final MdnsQuerier Function() _querierFactory;
+  final MulticastLock _multicastLock;
   final AppLogger _logger;
 
   static const _srvStageTimeout = Duration(seconds: 2);
@@ -140,6 +145,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     final deadline = DateTime.now().add(timeout);
     final results = <String, AndroidTvDiscoveryResult>{};
     MdnsQuerier? querier;
+    await _multicastLock.acquire();
 
     try {
       querier = _querierFactory();
@@ -187,6 +193,7 @@ class MdnsAndroidTvDiscovery implements AndroidTvDiscovery {
     } finally {
       _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_start');
       if (querier != null) _safeStop(querier);
+      await _multicastLock.release();
       _logger.info('[TV][DISCOVERY][ANDROID_TV] checkpoint=finally_stop_done');
     }
 
