@@ -66,3 +66,11 @@ We do not claim universal screen mirroring. Concretely:
 Ship casting (Phase 2 onward) well before attempting any mirroring.
 Mirroring is higher-effort, platform-fragmented, and in iOS's case
 partially outside third-party app control entirely.
+
+## Status
+
+**Not implemented, and `TvCapabilities.screenMirroring` is `false` for
+every provider** - no provider can mirror. Casting (Google Cast, DLNA) is
+implemented instead. A possible later addition is an honest
+"Mirror with AirPlay" button that opens the system `AVRoutePickerView` on
+iOS - it would hand off to iOS, not claim the app mirrors anything.

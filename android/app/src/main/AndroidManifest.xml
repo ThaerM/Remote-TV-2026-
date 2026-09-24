@@ -10,7 +10,7 @@
          while a scan is in progress (Dart: PlatformMulticastLock). -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <application
-        android:label="remote_tv_2026"
+        android:label="Remote TV 2026"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
