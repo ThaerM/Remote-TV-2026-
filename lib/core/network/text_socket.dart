@@ -5,6 +5,8 @@ import 'dart:io';
 /// a network.
 abstract interface class TextSocket {
   void send(String data);
+
+  /// Single-subscription: listen once. Frames are buffered until then.
   Stream<String> get messages;
 
   /// Completes when the socket closes, for any reason.
@@ -47,7 +49,11 @@ class IoTextSocket implements TextSocket {
   }
 
   final WebSocket _socket;
-  final _messages = StreamController<String>.broadcast();
+
+  // Single-subscription, so frames the TV sends right after the handshake
+  // (e.g. Samsung's `ms.channel.connect`) are buffered until the protocol
+  // code listens, instead of being dropped by a broadcast stream.
+  final _messages = StreamController<String>();
   final _done = Completer<void>();
 
   @override
@@ -65,7 +71,9 @@ class IoTextSocket implements TextSocket {
   Future<void> close() async {
     if (_done.isCompleted) return;
     _done.complete();
-    await _messages.close();
+    // Not awaited: closing an unlistened single-subscription controller
+    // only completes once someone listens (the LG input socket never is).
+    unawaited(_messages.close());
     await _socket.close();
   }
 }

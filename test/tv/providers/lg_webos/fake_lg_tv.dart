@@ -8,7 +8,7 @@ class FakeTextSocket implements TextSocket {
 
   void Function(String data)? onSend;
   final sent = <String>[];
-  final _messages = StreamController<String>.broadcast();
+  final _messages = StreamController<String>();
   final _done = Completer<void>();
 
   void emit(Map<String, Object?> message) => scheduleMicrotask(() {
@@ -31,7 +31,7 @@ class FakeTextSocket implements TextSocket {
   Future<void> close() async {
     if (_done.isCompleted) return;
     _done.complete();
-    await _messages.close();
+    unawaited(_messages.close());
   }
 }
 
