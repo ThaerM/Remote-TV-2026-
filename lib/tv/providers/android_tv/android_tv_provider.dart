@@ -103,6 +103,15 @@ class AndroidTvProvider implements TvProvider {
   Timer? _reconnectTimer;
   bool _userDisconnected = false;
 
+  /// Bumped by every [connect] and [disconnect] call. An in-flight attempt
+  /// (this device's TLS handshake, a paused reconnect Timer callback) is
+  /// abandoned - its socket closed, its result discarded - the moment it
+  /// notices its token is stale, so two overlapping attempts (the user taps
+  /// a second TV before the first settles, or a reconnect fires just as
+  /// the user reconnects by hand) can never cross-contaminate `_device`,
+  /// `_identity`, or the live transport/session fields.
+  int _connectToken = 0;
+
   @override
   TvPlatform get platform => TvPlatform.androidTv;
 
@@ -151,8 +160,54 @@ class AndroidTvProvider implements TvProvider {
     return null;
   }
 
+  /// Wraps [_connect] with a timeout this provider enforces itself,
+  /// regardless of whether the injected implementation honors its own
+  /// `timeout` parameter.
+  ///
+  /// The real transport (`TlsAndroidTvTransport.connect`) passes `timeout`
+  /// straight to `SecureSocket.connect`, but that only bounds the initial
+  /// TCP handshake - dart:io applies no bound at all to the TLS handshake
+  /// that follows, so a stalled peer (a half-dead connection left over on
+  /// the TV's side, the TV mid-idle-timeout, etc.) can leave that Future
+  /// pending forever. That unbounded await, with nothing above it in
+  /// [connect]/[_openRemoteConnection] to time it out, was the actual
+  /// cause of the reported "stuck on Connecting…" - not a UI bug.
+  ///
+  /// Dart can't cancel an in-flight Future, so on timeout this discards
+  /// the original one but keeps listening to it quietly: if it does
+  /// eventually resolve, the transport it produced is closed immediately
+  /// instead of being wired in as if it were current.
+  Future<AndroidTvMessageTransport> _connectBounded({
+    required String host,
+    required int port,
+    required AndroidTvIdentity identity,
+  }) {
+    final attempt = _connect(
+      host: host,
+      port: port,
+      identity: identity,
+      timeout: AndroidTvConstants.connectTimeout,
+    );
+    return attempt.timeout(
+      AndroidTvConstants.connectTimeout,
+      onTimeout: () {
+        unawaited(
+          attempt.then(
+            (transport) => transport.close(),
+            onError: (Object _) {},
+          ),
+        );
+        _logger.warning('[TV][CONNECTION][ANDROID_TV] connect_timeout');
+        throw const DeviceNotReachableException(
+          'Connecting to the TV timed out.',
+        );
+      },
+    );
+  }
+
   @override
   Future<TvPairingRequest> connect(TvDevice device) async {
+    final token = ++_connectToken;
     // Switching TVs (or re-selecting this one) must not leave the previous
     // remote/pairing sockets open alongside the new ones.
     await _closeSockets();
@@ -166,38 +221,90 @@ class AndroidTvProvider implements TvProvider {
       );
     }
 
+    _logger.info(
+      '[TV][CONNECTION][ANDROID_TV] connect_started id=${device.id}',
+    );
     _setState(TvConnectionState.connecting);
 
     final existingIdentity = await _store.loadIdentity(device.id);
+    if (token != _connectToken) throw _superseded();
+
     if (existingIdentity != null) {
+      _logger.info(
+        '[TV][CONNECTION][ANDROID_TV] restoring_saved_device id=${device.id} '
+        'using_saved_identity=true',
+      );
       // Already paired: skip straight to opening the remote-control
       // connection, which reuses the certificate the TV already trusts.
       _identity = existingIdentity;
       try {
-        await _openRemoteConnection(host);
-        return TvPairingRequest.none;
-      } on TvException {
-        // Fall through to re-pairing - the TV may have forgotten this
-        // client (factory reset, "forget all devices", etc.).
-        _logger.warning(
-          '[TV][CONNECTION][ANDROID_TV] stored identity was rejected, re-pairing',
+        await _openRemoteConnection(host, token);
+        if (token != _connectToken) throw _superseded();
+        // Keep the saved host/timestamp current - a saved TV must not
+        // need rediscovery just because DHCP gave it a new address.
+        await _store.saveMetadata(
+          PairedAndroidTvMetadata(
+            deviceId: device.id,
+            name: device.name,
+            lastKnownHost: host,
+            lastConnectedAt: DateTime.now(),
+          ),
         );
+        _logger.info('[TV][CONNECTION][ANDROID_TV] connect_succeeded');
+        return TvPairingRequest.none;
+      } on AuthenticationFailedException {
+        // The TV itself rejected this identity (factory reset, "forget
+        // all devices", ...) - and only this - means re-pairing. A
+        // reachability/timeout failure must not: the identity is still
+        // good, so the user should be able to just retry, never be
+        // walked into a fresh pairing code for a TV that's simply off.
+        if (token != _connectToken) throw _superseded();
+        _logger.warning(
+          '[TV][CONNECTION][ANDROID_TV] authentication_rejected '
+          'pairing_required=true',
+        );
+      } on TvException catch (error) {
+        if (token != _connectToken) throw _superseded();
+        _logger.info(
+          '[TV][CONNECTION][ANDROID_TV] connect_failed type=${error.runtimeType}',
+        );
+        _setState(TvConnectionState.error);
+        rethrow;
       }
+    } else {
+      _logger.info(
+        '[TV][CONNECTION][ANDROID_TV] pairing_required id=${device.id} '
+        'reason=no_saved_identity',
+      );
     }
 
     _identity = _generateIdentity();
-    _pairingTransport = await _connect(
-      host: host,
-      port: AndroidTvConstants.pairingPort,
-      identity: _identity!,
-      timeout: AndroidTvConstants.connectTimeout,
-    );
+    final AndroidTvMessageTransport pairingTransport;
+    try {
+      pairingTransport = await _connectBounded(
+        host: host,
+        port: AndroidTvConstants.pairingPort,
+        identity: _identity!,
+      );
+    } on TvException catch (error) {
+      if (token != _connectToken) throw _superseded();
+      _logger.info(
+        '[TV][CONNECTION][ANDROID_TV] pairing_connect_failed '
+        'type=${error.runtimeType}',
+      );
+      _setState(TvConnectionState.error);
+      rethrow;
+    }
+    if (token != _connectToken) {
+      await pairingTransport.close();
+      throw _superseded();
+    }
     if (_userDisconnected) {
       // Cancelled while the socket was opening.
-      await _pairingTransport?.close();
-      _pairingTransport = null;
+      await pairingTransport.close();
       throw const TvConnectionException('Pairing was cancelled.');
     }
+    _pairingTransport = pairingTransport;
     _setState(TvConnectionState.pairingRequired);
     _pairingHandshake = PairingHandshake(_pairingTransport!);
     await _pairingHandshake!.start();
@@ -208,8 +315,16 @@ class AndroidTvProvider implements TvProvider {
     );
   }
 
+  /// A superseded attempt is not a user-facing failure - it's silently
+  /// replaced by whichever [connect]/[disconnect] call came after it - so
+  /// it's still a [TvException] (the session controller only special-cases
+  /// nothing here) but never surfaces as an error state or message.
+  TvException _superseded() =>
+      const TvConnectionException('Connection attempt was superseded.');
+
   @override
   Future<void> submitPairingCode(String code) async {
+    final token = _connectToken;
     final transport = _pairingTransport;
     final handshake = _pairingHandshake;
     final identity = _identity;
@@ -243,20 +358,23 @@ class AndroidTvProvider implements TvProvider {
       ),
     );
 
-    await _openRemoteConnection(device.host!);
+    await _openRemoteConnection(device.host!, token);
   }
 
-  Future<void> _openRemoteConnection(String host) async {
+  Future<void> _openRemoteConnection(String host, int token) async {
     final identity = _identity;
     if (identity == null) throw const PairingRequiredException();
 
-    _setState(TvConnectionState.connecting);
-    final transport = await _connect(
+    if (token == _connectToken) _setState(TvConnectionState.connecting);
+    final transport = await _connectBounded(
       host: host,
       port: AndroidTvConstants.remoteControlPort,
       identity: identity,
-      timeout: AndroidTvConstants.connectTimeout,
     );
+    if (token != _connectToken) {
+      await transport.close();
+      throw _superseded();
+    }
     final session = RemoteSession(transport);
     _remoteTransport = transport;
     _remoteSession = session;
@@ -283,6 +401,15 @@ class AndroidTvProvider implements TvProvider {
       await session.dispose();
       await transport.close();
       rethrow;
+    }
+    if (token != _connectToken) {
+      // Connected just as this attempt was superseded - tear it back
+      // down rather than leaving it live under the wrong device/token.
+      _remoteSession = null;
+      _remoteTransport = null;
+      await session.dispose();
+      await transport.close();
+      throw _superseded();
     }
     _reconnectAttempt = 0;
     _setState(TvConnectionState.connected);
@@ -338,16 +465,21 @@ class AndroidTvProvider implements TvProvider {
     if (_state != TvConnectionState.reconnecting) {
       _setState(TvConnectionState.reconnecting);
     }
+    final token = _connectToken;
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
-      if (_userDisconnected) return;
+      if (_userDisconnected || token != _connectToken) return;
       try {
-        await _openRemoteConnection(device!.host!);
+        await _openRemoteConnection(device!.host!, token);
       } on AuthenticationFailedException {
+        // A newer connect()/disconnect() already took over this token's
+        // reconnect duties - let it own the outcome.
+        if (token != _connectToken) return;
         // The TV no longer trusts this client - retrying cannot succeed;
         // the user has to pair again.
         _logger.warning('[TV][CONNECTION][ANDROID_TV] reconnect_auth_failed');
         if (!_userDisconnected) _setState(TvConnectionState.error);
       } catch (error) {
+        if (token != _connectToken) return;
         _logger.info(
           '[TV][CONNECTION][ANDROID_TV] reconnect_failed '
           'type=${error.runtimeType}',
@@ -360,6 +492,7 @@ class AndroidTvProvider implements TvProvider {
   @override
   Future<void> disconnect() async {
     _userDisconnected = true;
+    _connectToken++; // invalidate any in-flight connect/reconnect attempt
     await _closeSockets();
     _setState(TvConnectionState.disconnected);
   }
@@ -486,7 +619,10 @@ class AndroidTvProvider implements TvProvider {
   }
 
   void dispose() {
-    _reconnectTimer?.cancel();
+    // No in-flight or future connect/reconnect work should touch this
+    // instance again once disposed.
+    _connectToken++;
+    unawaited(_closeSockets());
     unawaited(_connectionStateController.close());
   }
 }

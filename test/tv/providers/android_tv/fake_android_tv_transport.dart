@@ -47,7 +47,11 @@ class FakeAndroidTvTransport implements AndroidTvMessageTransport {
   Future<void> close() async {
     closed = true;
     if (!_doneCompleter.isCompleted) _doneCompleter.complete(null);
-    await _messagesController.close();
+    // Not awaited - matches TlsAndroidTvTransport.close(): a transport
+    // nothing ever subscribed to `messages` (e.g. a superseded connect
+    // attempt, discarded before a RemoteSession/PairingHandshake
+    // attaches) would otherwise hang here forever.
+    unawaited(_messagesController.close());
   }
 
   void receive(Uint8List messageBytes) {
@@ -57,6 +61,6 @@ class FakeAndroidTvTransport implements AndroidTvMessageTransport {
   Future<void> closeWithError(Object error) async {
     closed = true;
     if (!_doneCompleter.isCompleted) _doneCompleter.complete(error);
-    await _messagesController.close();
+    unawaited(_messagesController.close());
   }
 }

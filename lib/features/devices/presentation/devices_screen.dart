@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +8,9 @@ import '../../../app/routing/app_router.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
+import '../../../tv/domain/tv_domain.dart';
 import '../application/paired_android_tv_controller.dart';
+import '../../../tv/providers/android_tv/storage/android_tv_paired_device_store.dart';
 
 /// Shows the currently connected device, plus any Android TVs paired in
 /// a previous session, and lets the user disconnect, forget, or find
@@ -14,6 +18,37 @@ import '../application/paired_android_tv_controller.dart';
 /// see docs/product/feature-roadmap.md.
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
+
+  /// Reconnects using the saved identity/host - no rediscovery required -
+  /// and only then decides where to go: straight to Remote when that
+  /// identity is still trusted, or to Pairing only if the TV actually
+  /// asks for a new code (e.g. it forgot this client).
+  Future<void> _connectSaved(
+    BuildContext context,
+    WidgetRef ref,
+    PairedAndroidTvMetadata device,
+  ) async {
+    final notifier = ref.read(tvSessionControllerProvider.notifier);
+    await notifier.connect(
+      TvDevice(
+        id: device.deviceId,
+        name: device.name,
+        platform: TvPlatform.androidTv,
+        host: device.lastKnownHost,
+      ),
+    );
+    if (!context.mounted) return;
+    final session = ref.read(tvSessionControllerProvider);
+    if (session.isConnected) {
+      context.go(AppRoutes.remote);
+    } else if (session.pairingRequest != null) {
+      unawaited(context.push(AppRoutes.pairing));
+    } else if (session.lastError != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(session.lastError!)));
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,13 +104,29 @@ class DevicesScreen extends ConsumerWidget {
                             leading: const Icon(Icons.tv_rounded),
                             title: Text(device.name),
                             subtitle: Text(
-                              'Last seen at ${device.lastKnownHost}',
+                              session.selectedDevice?.id == device.deviceId &&
+                                      session.isConnected
+                                  ? 'Connected'
+                                  : 'Last seen at ${device.lastKnownHost}',
                             ),
-                            trailing: TextButton(
-                              onPressed: () => ref.read(
-                                forgetAndroidTvDeviceProvider,
-                              )(device.deviceId),
-                              child: const Text('Forget'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (session.selectedDevice?.id !=
+                                        device.deviceId ||
+                                    !session.isConnected)
+                                  TextButton(
+                                    onPressed: () =>
+                                        _connectSaved(context, ref, device),
+                                    child: const Text('Connect'),
+                                  ),
+                                TextButton(
+                                  onPressed: () => ref.read(
+                                    forgetAndroidTvDeviceProvider,
+                                  )(device.deviceId),
+                                  child: const Text('Forget'),
+                                ),
+                              ],
                             ),
                           ),
                         ),

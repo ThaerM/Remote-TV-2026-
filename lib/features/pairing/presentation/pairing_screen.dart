@@ -192,18 +192,35 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               if (session.lastError != null ||
                   session.connectionState == TvConnectionState.error) ...[
                 Text(
-                  session.lastError ?? 'Could not connect to this TV.',
+                  session.lastError ?? "Couldn't connect to this TV.",
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                FilledButton(
-                  onPressed: () => _leave(context),
-                  child: const Text('Back to TVs'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (device != null)
+                      FilledButton(
+                        // Same saved identity, same host - a bounded
+                        // network hiccup (Wi-Fi blip, TV briefly off)
+                        // never requires pairing again to retry.
+                        onPressed: () => _session.connect(device),
+                        child: const Text('Retry'),
+                      ),
+                    const SizedBox(width: AppSpacing.sm),
+                    OutlinedButton(
+                      onPressed: () => _leave(context),
+                      child: const Text('Back'),
+                    ),
+                  ],
                 ),
               ] else
                 Text(
-                  'Connecting…',
+                  device == null
+                      ? 'Connecting…'
+                      : 'Connecting to ${device.name}…',
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
             ],
