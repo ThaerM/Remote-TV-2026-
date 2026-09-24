@@ -43,6 +43,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   }
 
   void _leave(BuildContext context) {
+    if (!context.mounted) return;
     if (context.canPop()) {
       context.pop();
     } else {
@@ -215,7 +216,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                     ),
                   ],
                 ),
-              ] else
+              ] else ...[
                 Text(
                   device == null
                       ? 'Connecting…'
@@ -223,6 +224,15 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
+                const SizedBox(height: AppSpacing.md),
+                // Never an indefinite modal-like state with no exit - a
+                // slow/hung connect attempt (a network stall, a TLS
+                // handshake that never resolves) must still be escapable.
+                TextButton(
+                  onPressed: () => _leave(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
             ],
           ],
         ),

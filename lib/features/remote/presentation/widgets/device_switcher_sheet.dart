@@ -72,7 +72,10 @@ class DeviceSwitcherSheet extends ConsumerWidget {
                             subtitle: const Text('Offline'),
                             onTap: () {
                               Navigator.of(context).pop();
-                              context.go(AppRoutes.discovery);
+                              // Pushed, not go(): this is a child flow off
+                              // Remote, so Back returns here instead of
+                              // relying on Discovery's no-caller fallback.
+                              context.push(AppRoutes.discovery);
                             },
                           ),
                         ),
@@ -86,7 +89,7 @@ class DeviceSwitcherSheet extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
-                context.go(AppRoutes.discovery);
+                context.push(AppRoutes.discovery);
               },
               icon: const Icon(Icons.add_rounded),
               label: const Text('Find another TV'),

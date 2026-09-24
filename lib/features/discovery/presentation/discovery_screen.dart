@@ -35,29 +35,37 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(tvSessionControllerProvider);
+    // Navigator (not GoRouter.canPop): go_router pushes onto the same
+    // Navigator, and this must render correctly with no router in
+    // context too (widget tests mount this screen standalone).
+    final canPop = Navigator.of(context).canPop();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Find your TV'),
-        // Reached from Welcome with nothing underneath: Back still leads
-        // into the app rather than trapping the user here.
-        // Navigator (not GoRouter.canPop): go_router pushes onto the same
-        // Navigator, and this must render correctly with no router in
-        // context too (widget tests mount this screen standalone).
-        leading: Navigator.of(context).canPop()
-            ? null
-            : BackButton(onPressed: () => context.go(AppRoutes.remote)),
+    return PopScope(
+      // Reached from Welcome with nothing underneath: the system back
+      // gesture/button must still leave into the app rather than trapping
+      // (or exiting) from here, exactly like the visible Back button does.
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(AppRoutes.remote);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Find your TV'),
+          leading: canPop
+              ? null
+              : BackButton(onPressed: () => context.go(AppRoutes.remote)),
+        ),
+        body: session.isDiscovering
+            ? const _ScanningState()
+            : session.discoveredDevices.isEmpty
+            ? _EmptyState(
+                copy: DiscoveryIssueCopy.forIssue(session.discoveryIssue),
+                onRescan: () =>
+                    ref.read(tvSessionControllerProvider.notifier).discover(),
+                onAddByAddress: () => AddTvByAddressSheet.show(context),
+              )
+            : _DeviceList(devices: session.discoveredDevices),
       ),
-      body: session.isDiscovering
-          ? const _ScanningState()
-          : session.discoveredDevices.isEmpty
-          ? _EmptyState(
-              copy: DiscoveryIssueCopy.forIssue(session.discoveryIssue),
-              onRescan: () =>
-                  ref.read(tvSessionControllerProvider.notifier).discover(),
-              onAddByAddress: () => AddTvByAddressSheet.show(context),
-            )
-          : _DeviceList(devices: session.discoveredDevices),
     );
   }
 }
