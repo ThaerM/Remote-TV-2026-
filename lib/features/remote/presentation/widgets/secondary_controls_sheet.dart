@@ -51,40 +51,14 @@ class SecondaryControlsSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  RemoteActionButton(
-                    icon: Icons.skip_previous_rounded,
-                    label: 'Prev',
-                    onPressed: () => onCommand(
-                      const TvCommand.key(TvCommandKey.mediaPrevious),
-                    ),
-                  ),
-                  RemoteActionButton(
-                    icon: Icons.fast_rewind_rounded,
-                    label: 'Rewind',
-                    onPressed: () => onCommand(
-                      const TvCommand.key(TvCommandKey.mediaRewind),
-                    ),
-                  ),
-                  RemoteActionButton(
-                    icon: Icons.play_arrow_rounded,
-                    label: 'Play',
-                    emphasized: true,
-                    onPressed: () =>
-                        onCommand(const TvCommand.key(TvCommandKey.mediaPlay)),
-                  ),
-                  RemoteActionButton(
-                    icon: Icons.fast_forward_rounded,
-                    label: 'Forward',
-                    onPressed: () => onCommand(
-                      const TvCommand.key(TvCommandKey.mediaForward),
-                    ),
-                  ),
-                  RemoteActionButton(
-                    icon: Icons.skip_next_rounded,
-                    label: 'Next',
-                    onPressed: () =>
-                        onCommand(const TvCommand.key(TvCommandKey.mediaNext)),
-                  ),
+                  for (final button in _mediaButtons)
+                    if (capabilities.allows(button.key))
+                      RemoteActionButton(
+                        icon: button.icon,
+                        label: button.label,
+                        emphasized: button.key == TvCommandKey.mediaPlay,
+                        onPressed: () => onCommand(TvCommand.key(button.key)),
+                      ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -200,3 +174,23 @@ class _ColorKey extends StatelessWidget {
     );
   }
 }
+
+const _mediaButtons = [
+  (
+    key: TvCommandKey.mediaPrevious,
+    icon: Icons.skip_previous_rounded,
+    label: 'Prev',
+  ),
+  (
+    key: TvCommandKey.mediaRewind,
+    icon: Icons.fast_rewind_rounded,
+    label: 'Rewind',
+  ),
+  (key: TvCommandKey.mediaPlay, icon: Icons.play_arrow_rounded, label: 'Play'),
+  (
+    key: TvCommandKey.mediaForward,
+    icon: Icons.fast_forward_rounded,
+    label: 'Forward',
+  ),
+  (key: TvCommandKey.mediaNext, icon: Icons.skip_next_rounded, label: 'Next'),
+];

@@ -116,21 +116,24 @@ class RemoteScreen extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        RemoteActionButton(
-                          icon: Icons.home_rounded,
-                          label: 'Home',
-                          onPressed: () => send(TvCommandKey.home),
-                        ),
-                        RemoteActionButton(
-                          icon: Icons.arrow_back_rounded,
-                          label: 'Back',
-                          onPressed: () => send(TvCommandKey.back),
-                        ),
-                        RemoteActionButton(
-                          icon: Icons.menu_rounded,
-                          label: 'Menu',
-                          onPressed: () => send(TvCommandKey.menu),
-                        ),
+                        if (caps.allows(TvCommandKey.home))
+                          RemoteActionButton(
+                            icon: Icons.home_rounded,
+                            label: 'Home',
+                            onPressed: () => send(TvCommandKey.home),
+                          ),
+                        if (caps.allows(TvCommandKey.back))
+                          RemoteActionButton(
+                            icon: Icons.arrow_back_rounded,
+                            label: 'Back',
+                            onPressed: () => send(TvCommandKey.back),
+                          ),
+                        if (caps.allows(TvCommandKey.menu))
+                          RemoteActionButton(
+                            icon: Icons.menu_rounded,
+                            label: 'Menu',
+                            onPressed: () => send(TvCommandKey.menu),
+                          ),
                         if (caps.keyboard)
                           RemoteActionButton(
                             icon: Icons.keyboard_alt_outlined,

@@ -8,6 +8,7 @@ import 'android_tv/android_tv_provider.dart';
 import 'android_tv/storage/android_tv_paired_device_store.dart';
 import 'fake/fake_tv_provider.dart';
 import 'registry/tv_provider_registry.dart';
+import 'roku/roku_provider.dart';
 
 /// Long-lived [FakeTvProvider] instance backing the demo experience.
 ///
@@ -45,6 +46,12 @@ final androidTvProviderProvider = Provider<AndroidTvProvider>((ref) {
   return provider;
 });
 
+final rokuProviderProvider = Provider<RokuProvider>((ref) {
+  final provider = RokuProvider();
+  ref.onDispose(provider.dispose);
+  return provider;
+});
+
 /// Decides which [TvProvider]s get registered, given whether demo
 /// devices are enabled.
 ///
@@ -53,23 +60,26 @@ final androidTvProviderProvider = Provider<AndroidTvProvider>((ref) {
 /// unit-testable without needing a `--dart-define` recompile - see
 /// `test/tv/providers/tv_provider_registry_provider_test.dart`.
 ///
-/// Real providers (currently just [AndroidTvProvider]) are always
+/// Real providers ([AndroidTvProvider], [RokuProvider]) are always
 /// registered. `FakeTvProvider` is opt-in only, so a normal `flutter
 /// run` against a real TV never mixes demo devices into real discovery
 /// results.
 List<TvProvider> selectRegisteredProviders({
   required bool enableDemoDevices,
-  required TvProvider androidTvProvider,
+  required List<TvProvider> realProviders,
   required TvProvider fakeTvProvider,
 }) {
-  return [androidTvProvider, if (enableDemoDevices) fakeTvProvider];
+  return [...realProviders, if (enableDemoDevices) fakeTvProvider];
 }
 
 final tvProviderRegistryProvider = Provider<TvProviderRegistry>((ref) {
   return TvProviderRegistry(
     selectRegisteredProviders(
       enableDemoDevices: kEnableDemoTvDevices,
-      androidTvProvider: ref.watch(androidTvProviderProvider),
+      realProviders: [
+        ref.watch(androidTvProviderProvider),
+        ref.watch(rokuProviderProvider),
+      ],
       fakeTvProvider: ref.watch(fakeTvProviderProvider),
     ),
   );
