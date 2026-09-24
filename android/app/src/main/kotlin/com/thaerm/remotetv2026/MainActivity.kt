@@ -1,4 +1,4 @@
-package com.remotetv2026.remote_tv_2026
+package com.thaerm.remotetv2026
 
 import android.content.Context
 import android.net.wifi.WifiManager

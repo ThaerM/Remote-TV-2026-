@@ -75,7 +75,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'One remote for every TV in your home.',
+                'One app for the compatible smart TVs and streaming devices in your home.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: AppSpacing.xl),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/about/presentation/about_screen.dart';
 import '../../features/apps/presentation/apps_screen.dart';
 import '../../features/casting/presentation/cast_screen.dart';
 import '../../features/devices/presentation/devices_screen.dart';
@@ -28,6 +29,7 @@ abstract final class AppRoutes {
   static const remoteLayoutSettings = '/settings/remote-layout';
   static const remoteBehaviorSettings = '/settings/remote-behavior';
   static const diagnostics = '/settings/diagnostics';
+  static const about = '/settings/about';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -86,6 +88,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.diagnostics,
         builder: (context, state) => const DiagnosticsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.about,
+        builder: (context, state) => const AboutScreen(),
       ),
     ],
   );

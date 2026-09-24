@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remote_tv_2026/app/theme/app_theme.dart';
+import 'package:remote_tv_2026/features/about/presentation/about_screen.dart';
 import 'package:remote_tv_2026/features/casting/presentation/cast_screen.dart';
 import 'package:remote_tv_2026/features/devices/application/paired_android_tv_controller.dart';
 import 'package:remote_tv_2026/features/devices/presentation/devices_screen.dart';
@@ -97,6 +98,7 @@ Future<void> _golden(
           registry ?? TvProviderRegistry(const []),
         ),
         pairedAndroidTvDevicesProvider.overrideWith((ref) async => const []),
+        appVersionProvider.overrideWith((ref) async => '1.0.0 (1)'),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -122,6 +124,10 @@ Future<void> _golden(
 }
 
 void main() {
+  testWidgets('about', (tester) async {
+    await _golden(tester, 'about_dark', const AboutScreen());
+  });
+
   testWidgets('welcome', (tester) async {
     await _golden(tester, 'welcome_dark', const WelcomeScreen());
   });
