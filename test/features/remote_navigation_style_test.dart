@@ -70,18 +70,21 @@ void main() {
     testWidgets('tapping the switch button flips the preference', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(_wrap(style: RemoteNavigationStyle.dpad));
       await tester.pump();
 
       expect(find.byType(DpadControl), findsOneWidget);
 
-      await tester.tap(find.text('Touchpad'));
+      await tester.tap(find.bySemanticsLabel('Switch to Touchpad'));
       // Not pumpAndSettle: ConnectionStatusIndicator's connection-state
       // pulse repeats indefinitely by design, so it would never settle.
       await tester.pump();
       await tester.pump(AppMotion.panel);
 
       expect(find.byType(TouchpadSurface), findsOneWidget);
+
+      semantics.dispose();
     });
   });
 }

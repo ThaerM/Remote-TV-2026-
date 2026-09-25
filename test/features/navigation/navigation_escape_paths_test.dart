@@ -307,6 +307,7 @@ void main() {
 
   group('Apps', () {
     testWidgets('10. Back returns to Remote', (tester) async {
+      final semantics = tester.ensureSemantics();
       final router = _appLikeRouter(initialLocation: AppRoutes.remote);
       const connectedWithApps = TvSessionState(
         selectedDevice: TvDevice(
@@ -330,7 +331,10 @@ void main() {
       await _settle(tester);
 
       expect(find.byType(AppsScreen), findsNothing);
-      expect(find.text('Netflix'), findsOneWidget); // the quick-apps row
+      // The quick-apps row is icon-only (no visible label) - verify via
+      // its semantic label instead of a text finder.
+      expect(find.bySemanticsLabel('Open Netflix'), findsOneWidget);
+      semantics.dispose();
     });
   });
 

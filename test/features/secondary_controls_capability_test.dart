@@ -98,11 +98,27 @@ void main() {
       _sheet(const TvCapabilities(numericKeypad: true, colorKeys: true), sent),
     );
 
-    expect(find.text('Number pad'), findsOneWidget);
-    expect(find.text('Color keys'), findsOneWidget);
-
     await tester.tap(find.text('5'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(sent.single.key, TvCommandKey.digit5);
   });
+
+  testWidgets(
+    'the keypad shows dim "*"/"#" placeholders that never send a command',
+    (tester) async {
+      final sent = <TvCommand>[];
+      await tester.pumpWidget(
+        _sheet(const TvCapabilities(numericKeypad: true), sent),
+      );
+
+      expect(find.text('*'), findsOneWidget);
+      expect(find.text('#'), findsOneWidget);
+
+      await tester.tap(find.text('*'), warnIfMissed: false);
+      await tester.tap(find.text('#'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(sent, isEmpty);
+    },
+  );
 }

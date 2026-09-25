@@ -77,6 +77,7 @@ void main() {
     testWidgets('the D-pad still dispatches commands with Theater Mode on', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(wrap(theaterModeEnabled: true));
       await tester.pump();
 
@@ -85,6 +86,30 @@ void main() {
 
       expect(session.sentCommands, hasLength(1));
       expect(session.sentCommands.single.key, TvCommandKey.select);
+
+      semantics.dispose();
     });
+
+    testWidgets(
+      'the header subtitle shows "Theater Mode" instead of the platform '
+      'name when enabled',
+      (tester) async {
+        await tester.pumpWidget(wrap(theaterModeEnabled: true));
+        await tester.pump();
+
+        expect(find.textContaining('Theater Mode'), findsOneWidget);
+        expect(find.textContaining('· Demo'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the header subtitle shows the platform name when Theater Mode is off',
+      (tester) async {
+        await tester.pumpWidget(wrap(theaterModeEnabled: false));
+        await tester.pump();
+
+        expect(find.textContaining('Theater Mode'), findsNothing);
+      },
+    );
   });
 }

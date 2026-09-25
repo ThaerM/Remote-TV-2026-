@@ -23,6 +23,8 @@ class DpadControl extends StatelessWidget {
   /// dark and calm without touching command behavior or hit targets.
   final bool theaterModeEnabled;
 
+  static const _okDiameter = 92.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -70,66 +72,59 @@ class DpadControl extends StatelessWidget {
               border: Border.all(color: borderColor),
             ),
           ),
-          // Faint radial spokes at the four compass points - the subtle
-          // separation lines a physical D-pad's cross housing has
-          // between its Up/Down/Left/Right zones.
+          // Cross-shaped separation lines from the OK button's edge out to
+          // the disc's edge - the subtle housing seams a physical D-pad
+          // has between its Up/Down/Left/Right zones.
           SizedBox(
             width: AppControlSize.dpadDiameter,
             height: AppControlSize.dpadDiameter,
             child: CustomPaint(
               painter: _SpokesPainter(
-                color: borderColor.withValues(alpha: 0.5),
+                color: borderColor.withValues(alpha: 0.6),
+                innerRadius: _okDiameter / 2,
               ),
             ),
           ),
-          // The ring the Select button sits inside - separates the
-          // "select" hierarchy from the four directional presses around
-          // it, the way a real remote's raised center cluster reads.
-          Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: borderColor),
-            ),
-          ),
           Positioned(
-            top: 8,
+            top: 22,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_up_rounded,
               semanticLabel: 'Navigate Up',
+              theaterModeEnabled: theaterModeEnabled,
               onTap: () => onCommand(TvCommandKey.dpadUp),
             ),
           ),
           Positioned(
-            bottom: 8,
+            bottom: 22,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_down_rounded,
               semanticLabel: 'Navigate Down',
+              theaterModeEnabled: theaterModeEnabled,
               onTap: () => onCommand(TvCommandKey.dpadDown),
             ),
           ),
           Positioned(
-            left: 8,
+            left: 22,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_left_rounded,
               semanticLabel: 'Navigate Left',
+              theaterModeEnabled: theaterModeEnabled,
               onTap: () => onCommand(TvCommandKey.dpadLeft),
             ),
           ),
           Positioned(
-            right: 8,
+            right: 22,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_right_rounded,
               semanticLabel: 'Navigate Right',
+              theaterModeEnabled: theaterModeEnabled,
               onTap: () => onCommand(TvCommandKey.dpadRight),
             ),
           ),
           _DpadButton(
-            icon: Icons.circle,
-            iconSize: 12,
             isPrimary: true,
             semanticLabel: 'Select',
+            theaterModeEnabled: theaterModeEnabled,
             onTap: () => onCommand(TvCommandKey.select),
           ),
         ],
@@ -140,18 +135,18 @@ class DpadControl extends StatelessWidget {
 
 class _DpadButton extends ConsumerStatefulWidget {
   const _DpadButton({
-    required this.icon,
     required this.onTap,
     required this.semanticLabel,
-    this.iconSize = 22,
+    this.icon,
     this.isPrimary = false,
+    this.theaterModeEnabled = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback onTap;
   final String semanticLabel;
-  final double iconSize;
   final bool isPrimary;
+  final bool theaterModeEnabled;
 
   @override
   ConsumerState<_DpadButton> createState() => _DpadButtonState();
@@ -167,19 +162,69 @@ class _DpadButtonState extends ConsumerState<_DpadButton> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final size = widget.isPrimary ? 52.0 : 40.0;
     final hapticsEnabled = ref.watch(
       settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
     );
+    final accentAlpha = widget.theaterModeEnabled ? 0.55 : 1.0;
+    final accent = AppColors.glow.withValues(alpha: accentAlpha);
 
-    // The OK/Select button is the D-pad's visual hero: a dark hardware
-    // button with a restrained cyan accent ring and glow, not a solid
-    // brand-green fill - the four directional zones stay unaccented so
-    // the accent reads as "this is the one that matters."
-    final okFill = theme.brightness == Brightness.dark
-        ? AppColors.darkSurfaceRaised
-        : theme.cardTheme.color;
+    if (widget.isPrimary) {
+      // The OK/Select button is the D-pad's visual hero: a large solid
+      // cyan disc with an "OK" label - not a dot icon - matching the
+      // approved hardware-remote reference. Theater Mode swaps the
+      // solid fill for a dim outline so it reads as "present but calm."
+      return PressableScale(
+        hapticsEnabled: hapticsEnabled,
+        semanticLabel: widget.semanticLabel,
+        onTap: widget.onTap,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          width: DpadControl._okDiameter,
+          height: DpadControl._okDiameter,
+          decoration: BoxDecoration(
+            color: widget.theaterModeEnabled
+                ? Colors.transparent
+                : AppColors.glow.withValues(alpha: _pressed ? 1 : 0.92),
+            shape: BoxShape.circle,
+            border: widget.theaterModeEnabled
+                ? Border.all(color: accent, width: 1.5)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.glow.withValues(
+                  alpha:
+                      (widget.theaterModeEnabled ? 0.12 : 0.3) *
+                      (_pressed ? 1.4 : 1),
+                ),
+                blurRadius: _pressed ? 18 : 12,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          // The "OK" label is decorative - PressableScale already
+          // supplies the real "Select" semantic label above, and an
+          // un-excluded Text here would merge its own "OK" label into
+          // that node instead of just displaying visually.
+          child: ExcludeSemantics(
+            child: Text(
+              'OK',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: widget.theaterModeEnabled
+                    ? accent
+                    : AppColors.darkBackground,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return PressableScale(
       hapticsEnabled: hapticsEnabled,
@@ -190,50 +235,24 @@ class _DpadButtonState extends ConsumerState<_DpadButton> {
       onTapCancel: () => _setPressed(false),
       child: AnimatedContainer(
         duration: AppMotion.fast,
-        width: size,
-        height: size,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: widget.isPrimary
-              ? okFill
-              : (_pressed
-                    ? AppColors.glow.withValues(alpha: 0.14)
-                    : Colors.transparent),
+          color: _pressed ? accent.withValues(alpha: 0.14) : Colors.transparent,
           shape: BoxShape.circle,
-          border: widget.isPrimary
-              ? Border.all(
-                  color: AppColors.glow.withValues(alpha: _pressed ? 1 : 0.7),
-                  width: 1.5,
-                )
-              : (_pressed
-                    ? Border.all(color: AppColors.glow.withValues(alpha: 0.5))
-                    : null),
-          boxShadow: widget.isPrimary
-              ? [
-                  BoxShadow(
-                    color: AppColors.glow.withValues(
-                      alpha: _pressed ? 0.45 : 0.25,
-                    ),
-                    blurRadius: _pressed ? 14 : 8,
-                    spreadRadius: 0.5,
-                  ),
-                ]
-              : null,
         ),
         alignment: Alignment.center,
-        child: Icon(
-          widget.icon,
-          size: widget.iconSize,
-          color: widget.isPrimary ? AppColors.glow : theme.iconTheme.color,
-        ),
+        child: Icon(widget.icon, size: 26, color: accent),
       ),
     );
   }
 }
 
 class _SpokesPainter extends CustomPainter {
-  const _SpokesPainter({required this.color});
+  const _SpokesPainter({required this.color, required this.innerRadius});
 
   final Color color;
+  final double innerRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -241,8 +260,7 @@ class _SpokesPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = 1;
     final center = Offset(size.width / 2, size.height / 2);
-    const innerRadius = 42.0;
-    final outerRadius = size.width / 2 - 4;
+    final outerRadius = size.width / 2 - 2;
     const directions = [
       Offset(0, -1), // top
       Offset(1, 0), // right
@@ -260,5 +278,5 @@ class _SpokesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SpokesPainter oldDelegate) =>
-      oldDelegate.color != color;
+      oldDelegate.color != color || oldDelegate.innerRadius != innerRadius;
 }

@@ -7,7 +7,6 @@ import '../../../app/theme/app_theme.dart';
 import '../../../core/design/app_colors.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../core/design/widgets/pressable_scale.dart';
-import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
 import '../../apps/presentation/widgets/app_icon.dart';
@@ -84,6 +83,7 @@ class RemoteScreen extends ConsumerWidget {
                 platform: session.selectedDevice!.platform,
                 connectionState: session.connectionState,
                 powerEnabled: caps.power,
+                theaterMode: theaterMode,
                 onPower: () => send(TvCommandKey.power),
                 onSwitchTv: () => DeviceSwitcherSheet.show(context),
               ),
@@ -133,6 +133,7 @@ class RemoteScreen extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.xs),
                       _NavStyleToggle(
                         style: settings.navigationStyle,
+                        dimmed: theaterMode,
                         onSelect: (style) => ref
                             .read(settingsControllerProvider.notifier)
                             .setNavigationStyle(style),
@@ -205,13 +206,12 @@ class RemoteScreen extends ConsumerWidget {
                         children: [
                           for (final button in _mediaButtons)
                             if (caps.allows(button.key))
-                              RemoteActionButton(
+                              _MediaButton(
                                 icon: button.icon,
-                                label: '',
-                                size: 44,
                                 semanticLabel: button.label,
                                 emphasized:
                                     button.key == TvCommandKey.mediaPlay,
+                                dimmed: theaterMode,
                                 onPressed: () => notifier.sendCommand(
                                   TvCommand.key(button.key),
                                 ),
@@ -372,38 +372,49 @@ class _RemoteControlPanel extends StatelessWidget {
   }
 }
 
-/// A compact segmented pill between D-pad and touchpad navigation -
-/// both options visible with the active one highlighted, replacing a
-/// full-width "Switch to touchpad" text row.
+/// A compact icon-only segmented pill between D-pad and touchpad
+/// navigation - the active mode is a solid filled capsule, the inactive
+/// one a bare icon, matching the approved hardware-remote reference.
+/// Replaces a full-width "Switch to touchpad" text row.
 class _NavStyleToggle extends StatelessWidget {
-  const _NavStyleToggle({required this.style, required this.onSelect});
+  const _NavStyleToggle({
+    required this.style,
+    required this.onSelect,
+    this.dimmed = false,
+  });
 
   final RemoteNavigationStyle style;
   final void Function(RemoteNavigationStyle style) onSelect;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.6)),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: dimmed ? 0.35 : 0.6),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _NavStyleSegment(
-            icon: Icons.gamepad_outlined,
+            icon: Icons.add_rounded,
             label: 'D-pad',
             selected: style == RemoteNavigationStyle.dpad,
+            dimmed: dimmed,
             onTap: () => onSelect(RemoteNavigationStyle.dpad),
           ),
           _NavStyleSegment(
-            icon: Icons.touch_app_outlined,
+            icon: Icons.touch_app_rounded,
             label: 'Touchpad',
             selected: style == RemoteNavigationStyle.touchpad,
+            dimmed: dimmed,
             onTap: () => onSelect(RemoteNavigationStyle.touchpad),
           ),
         ],
@@ -418,17 +429,19 @@ class _NavStyleSegment extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.dimmed = false,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
+  final bool dimmed;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected ? AppColors.glow : theme.colorScheme.secondary;
+    final accent = AppColors.glow.withValues(alpha: dimmed ? 0.55 : 1);
 
     return PressableScale(
       hapticsEnabled: false,
@@ -436,27 +449,17 @@ class _NavStyleSegment extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: AppMotion.fast,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: 4,
-        ),
+        width: 36,
+        height: 28,
         decoration: BoxDecoration(
-          color: selected ? AppColors.glow.withValues(alpha: 0.14) : null,
+          color: selected ? accent : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 16,
+          color: selected ? AppColors.darkBackground : theme.iconTheme.color,
         ),
       ),
     );
@@ -615,6 +618,101 @@ class _HardwareButtonState extends ConsumerState<_HardwareButton> {
   }
 }
 
+/// A media transport button. Play/Pause is emphasized as a large solid
+/// cyan disc (the strongest control in the row, per the approved
+/// reference); every other button (Prev/Rewind/Forward/Next) is a bare
+/// icon with no background - not a card/circle each.
+class _MediaButton extends ConsumerStatefulWidget {
+  const _MediaButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.emphasized = false,
+    this.dimmed = false,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+  final bool emphasized;
+  final bool dimmed;
+
+  @override
+  ConsumerState<_MediaButton> createState() => _MediaButtonState();
+}
+
+class _MediaButtonState extends ConsumerState<_MediaButton> {
+  var _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hapticsEnabled = ref.watch(
+      settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
+    );
+    final accent = AppColors.glow.withValues(alpha: widget.dimmed ? 0.55 : 1);
+
+    return PressableScale(
+      hapticsEnabled: hapticsEnabled,
+      semanticLabel: widget.semanticLabel,
+      onTap: widget.onPressed,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      child: widget.emphasized
+          ? AnimatedContainer(
+              duration: AppMotion.fast,
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: widget.dimmed
+                    ? Colors.transparent
+                    : accent.withValues(alpha: _pressed ? 1 : 0.92),
+                shape: BoxShape.circle,
+                border: widget.dimmed
+                    ? Border.all(color: accent, width: 1.5)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(
+                      alpha:
+                          (widget.dimmed ? 0.12 : 0.3) * (_pressed ? 1.4 : 1),
+                    ),
+                    blurRadius: _pressed ? 16 : 10,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                widget.icon,
+                size: 26,
+                color: widget.dimmed ? accent : AppColors.darkBackground,
+              ),
+            )
+          : Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              child: Icon(
+                widget.icon,
+                size: 24,
+                color: _pressed
+                    ? accent
+                    : theme.iconTheme.color?.withValues(
+                        alpha: widget.dimmed ? 0.5 : 1,
+                      ),
+              ),
+            ),
+    );
+  }
+}
+
 /// The subtle entry point into "More Controls": a thin divider, a small
 /// icon, the label, and a chevron - not a large outlined CTA button.
 class _MoreControlsEntry extends StatelessWidget {
@@ -696,6 +794,7 @@ class _DeviceHeader extends StatelessWidget {
     required this.powerEnabled,
     required this.onPower,
     required this.onSwitchTv,
+    this.theaterMode = false,
   });
 
   final String deviceName;
@@ -704,6 +803,11 @@ class _DeviceHeader extends StatelessWidget {
   final bool powerEnabled;
   final VoidCallback onPower;
   final VoidCallback onSwitchTv;
+
+  /// Theater Mode replaces the platform name in the subtitle ("Connected
+  /// · Theater Mode") and dims the power button - matching the approved
+  /// reference, which treats Theater Mode as a visible device state.
+  final bool theaterMode;
 
   @override
   Widget build(BuildContext context) {
@@ -754,7 +858,9 @@ class _DeviceHeader extends StatelessWidget {
                           ConnectionStatusIndicator(state: connectionState),
                           Flexible(
                             child: Text(
-                              ' · ${platform.displayName}',
+                              theaterMode
+                                  ? ' · Theater Mode'
+                                  : ' · ${platform.displayName}',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.secondary,
                               ),
@@ -778,17 +884,42 @@ class _DeviceHeader extends StatelessWidget {
         ),
         if (powerEnabled) ...[
           const SizedBox(width: AppSpacing.sm),
-          SizedBox(
-            width: 36,
-            height: 36,
-            child: IconButton.filledTonal(
-              padding: EdgeInsets.zero,
-              onPressed: onPower,
-              icon: const Icon(Icons.power_settings_new_rounded, size: 18),
-            ),
-          ),
+          _PowerButton(onPressed: onPower, dimmed: theaterMode),
         ],
       ],
+    );
+  }
+}
+
+/// Outline circular power button with a cyan ring, matching the approved
+/// reference - not a filled Material tonal button.
+class _PowerButton extends StatelessWidget {
+  const _PowerButton({required this.onPressed, this.dimmed = false});
+
+  final VoidCallback onPressed;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = dimmed
+        ? theme.dividerColor.withValues(alpha: 0.7)
+        : AppColors.glow;
+
+    return PressableScale(
+      hapticsEnabled: false,
+      semanticLabel: 'Power',
+      onTap: onPressed,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: accent, width: 1.5),
+        ),
+        alignment: Alignment.center,
+        child: Icon(Icons.power_settings_new_rounded, size: 18, color: accent),
+      ),
     );
   }
 }
@@ -801,48 +932,52 @@ class _QuickAppsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Icon-only row with "See all" trailing on the same line - no "Apps"
+    // section label, matching the approved reference.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(left: AppSpacing.xs),
-              child: SectionHeader('Apps'),
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              scrollDirection: Axis.horizontal,
+              itemCount: applications.length,
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+              itemBuilder: (context, index) {
+                final app = applications[index];
+                return _QuickAppTile(app: app, onTap: () => onLaunch(app));
+              },
             ),
-            InkWell(
-              onTap: () => context.push(AppRoutes.apps),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: AppSpacing.xs,
-                ),
-                child: Text(
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        InkWell(
+          onTap: () => context.push(AppRoutes.apps),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
                   'See all',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
-              ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        SizedBox(
-          height: 72,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-            scrollDirection: Axis.horizontal,
-            itemCount: applications.length,
-            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-            itemBuilder: (context, index) {
-              final app = applications[index];
-              return _QuickAppTile(app: app, onTap: () => onLaunch(app));
-            },
           ),
         ),
       ],
@@ -866,31 +1001,15 @@ class _QuickAppTile extends StatelessWidget {
       semanticLabel: 'Open ${app.name}',
       onTap: onTap,
       child: Container(
-        width: 64,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: 6,
-        ),
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(color: theme.dividerColor),
         ),
         alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppIcon(app: app, size: 24, bordered: false),
-            const SizedBox(height: 4),
-            Text(
-              app.name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+        child: AppIcon(app: app, size: 26, bordered: false),
       ),
     );
   }
