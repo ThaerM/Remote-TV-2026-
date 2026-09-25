@@ -16,6 +16,7 @@ import 'widgets/connection_status_indicator.dart';
 import 'widgets/device_switcher_sheet.dart';
 import 'widgets/dpad_control.dart';
 import 'widgets/remote_action_button.dart';
+import 'widgets/remote_rocker.dart';
 import 'widgets/secondary_controls_sheet.dart';
 import 'widgets/touchpad_surface.dart';
 
@@ -80,6 +81,7 @@ class RemoteScreen extends ConsumerWidget {
             children: [
               _DeviceHeader(
                 deviceName: session.selectedDevice!.name,
+                platform: session.selectedDevice!.platform,
                 connectionState: session.connectionState,
                 powerEnabled: caps.power,
                 onPower: () => send(TvCommandKey.power),
@@ -131,14 +133,9 @@ class RemoteScreen extends ConsumerWidget {
                       const SizedBox(height: AppSpacing.xs),
                       _NavStyleToggle(
                         style: settings.navigationStyle,
-                        onToggle: () => ref
+                        onSelect: (style) => ref
                             .read(settingsControllerProvider.notifier)
-                            .setNavigationStyle(
-                              settings.navigationStyle ==
-                                      RemoteNavigationStyle.dpad
-                                  ? RemoteNavigationStyle.touchpad
-                                  : RemoteNavigationStyle.dpad,
-                            ),
+                            .setNavigationStyle(style),
                       ),
                       const SizedBox(height: AppSpacing.md),
                     ],
@@ -146,29 +143,41 @@ class RemoteScreen extends ConsumerWidget {
                         caps.allows(TvCommandKey.back) ||
                         caps.allows(TvCommandKey.menu))
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           if (caps.allows(TvCommandKey.home))
-                            RemoteActionButton(
-                              icon: Icons.home_rounded,
-                              label: 'Home',
-                              size: 48,
-                              onPressed: () => send(TvCommandKey.home),
+                            Expanded(
+                              child: _HardwareButton(
+                                icon: Icons.home_rounded,
+                                label: 'HOME',
+                                dimmed: theaterMode,
+                                onPressed: () => send(TvCommandKey.home),
+                              ),
                             ),
-                          if (caps.allows(TvCommandKey.back))
-                            RemoteActionButton(
-                              icon: Icons.arrow_back_rounded,
-                              label: 'Back',
-                              size: 48,
-                              onPressed: () => send(TvCommandKey.back),
+                          if (caps.allows(TvCommandKey.back)) ...[
+                            if (caps.allows(TvCommandKey.home))
+                              const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: _HardwareButton(
+                                icon: Icons.arrow_back_rounded,
+                                label: 'BACK',
+                                dimmed: theaterMode,
+                                onPressed: () => send(TvCommandKey.back),
+                              ),
                             ),
-                          if (caps.allows(TvCommandKey.menu))
-                            RemoteActionButton(
-                              icon: Icons.menu_rounded,
-                              label: 'Menu',
-                              size: 48,
-                              onPressed: () => send(TvCommandKey.menu),
+                          ],
+                          if (caps.allows(TvCommandKey.menu)) ...[
+                            if (caps.allows(TvCommandKey.home) ||
+                                caps.allows(TvCommandKey.back))
+                              const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: _HardwareButton(
+                                icon: Icons.menu_rounded,
+                                label: 'MENU',
+                                dimmed: theaterMode,
+                                onPressed: () => send(TvCommandKey.menu),
+                              ),
                             ),
+                          ],
                         ],
                       ),
                     if (caps.volume || caps.channel) ...[
@@ -179,6 +188,7 @@ class RemoteScreen extends ConsumerWidget {
                         volumeEnabled: caps.volume,
                         muteEnabled: caps.mute,
                         channelEnabled: caps.channel,
+                        dimmed: theaterMode,
                         onVolumeUp: () => send(TvCommandKey.volumeUp),
                         onVolumeDown: () => send(TvCommandKey.volumeDown),
                         onMute: () => send(TvCommandKey.mute),
@@ -212,18 +222,15 @@ class RemoteScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
               if (hasSecondaryControls)
-                OutlinedButton.icon(
-                  onPressed: () => SecondaryControlsSheet.show(
+                _MoreControlsEntry(
+                  onTap: () => SecondaryControlsSheet.show(
                     context,
                     capabilities: caps,
                     onCommand: notifier.sendCommand,
                     onOpenKeyboard: () =>
                         _showKeyboardSheet(context, ref, notifier),
                   ),
-                  icon: const Icon(Icons.apps_rounded),
-                  label: const Text('More controls'),
                 ),
               if (!isLive) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -365,46 +372,87 @@ class _RemoteControlPanel extends StatelessWidget {
   }
 }
 
-/// A compact pill toggle between D-pad and touchpad navigation - replaces
-/// a full-width text row so the switch reads as a secondary affordance,
-/// not another primary control.
+/// A compact segmented pill between D-pad and touchpad navigation -
+/// both options visible with the active one highlighted, replacing a
+/// full-width "Switch to touchpad" text row.
 class _NavStyleToggle extends StatelessWidget {
-  const _NavStyleToggle({required this.style, required this.onToggle});
+  const _NavStyleToggle({required this.style, required this.onSelect});
 
   final RemoteNavigationStyle style;
-  final VoidCallback onToggle;
+  final void Function(RemoteNavigationStyle style) onSelect;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDpad = style == RemoteNavigationStyle.dpad;
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _NavStyleSegment(
+            icon: Icons.gamepad_outlined,
+            label: 'D-pad',
+            selected: style == RemoteNavigationStyle.dpad,
+            onTap: () => onSelect(RemoteNavigationStyle.dpad),
+          ),
+          _NavStyleSegment(
+            icon: Icons.touch_app_outlined,
+            label: 'Touchpad',
+            selected: style == RemoteNavigationStyle.touchpad,
+            onTap: () => onSelect(RemoteNavigationStyle.touchpad),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavStyleSegment extends StatelessWidget {
+  const _NavStyleSegment({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = selected ? AppColors.glow : theme.colorScheme.secondary;
 
     return PressableScale(
       hapticsEnabled: false,
-      semanticLabel: isDpad ? 'Switch to touchpad' : 'Switch to D-pad',
-      onTap: onToggle,
-      child: Container(
+      semanticLabel: 'Switch to $label',
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
           vertical: 4,
         ),
         decoration: BoxDecoration(
+          color: selected ? AppColors.glow.withValues(alpha: 0.14) : null,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: theme.dividerColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isDpad ? Icons.touch_app_outlined : Icons.gamepad_outlined,
-              size: 14,
-              color: theme.colorScheme.secondary,
-            ),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(
-              isDpad ? 'Touchpad' : 'D-pad',
+              label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.secondary,
+                color: color,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -415,10 +463,9 @@ class _NavStyleToggle extends StatelessWidget {
   }
 }
 
-/// Volume, Mute, and Channel as one compact horizontal row of small
-/// circular controls - a rocker-style pair on each side of Mute - instead
-/// of a tall standalone section. Long-press repeats, matching
-/// [RemoteActionButton]'s existing repeat behavior.
+/// Volume, Mute, and Channel matching a physical remote's layout: a
+/// vertical Volume rocker on the left, a circular Mute button in the
+/// center, and a vertical Channel rocker (labelled "CH") on the right.
 class _VolumeChannelRow extends StatelessWidget {
   const _VolumeChannelRow({
     required this.volumeEnabled,
@@ -429,6 +476,7 @@ class _VolumeChannelRow extends StatelessWidget {
     required this.onMute,
     required this.onChannelUp,
     required this.onChannelDown,
+    this.dimmed = false,
   });
 
   final bool volumeEnabled;
@@ -439,56 +487,173 @@ class _VolumeChannelRow extends StatelessWidget {
   final VoidCallback onMute;
   final VoidCallback onChannelUp;
   final VoidCallback onChannelDown;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (volumeEnabled) ...[
+        if (volumeEnabled)
+          RemoteRocker(
+            increaseSemanticLabel: 'Volume Up',
+            decreaseSemanticLabel: 'Volume Down',
+            dimmed: dimmed,
+            onIncrease: onVolumeUp,
+            onDecrease: onVolumeDown,
+          ),
+        if (muteEnabled)
           RemoteActionButton(
-            icon: Icons.remove_rounded,
+            icon: Icons.volume_off_rounded,
             label: '',
             size: 44,
-            semanticLabel: 'Volume Down',
-            repeatWhileHeld: true,
-            onPressed: onVolumeDown,
+            semanticLabel: 'Mute',
+            onPressed: onMute,
           ),
-          if (muteEnabled)
-            RemoteActionButton(
-              icon: Icons.volume_off_rounded,
-              label: '',
-              size: 40,
-              semanticLabel: 'Mute',
-              onPressed: onMute,
+        if (channelEnabled)
+          RemoteRocker(
+            increaseSemanticLabel: 'Channel Up',
+            decreaseSemanticLabel: 'Channel Down',
+            dimmed: dimmed,
+            onIncrease: onChannelUp,
+            onDecrease: onChannelDown,
+            icon: Text(
+              'CH',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
             ),
-          RemoteActionButton(
-            icon: Icons.add_rounded,
-            label: '',
-            size: 44,
-            semanticLabel: 'Volume Up',
-            repeatWhileHeld: true,
-            onPressed: onVolumeUp,
           ),
-        ],
-        if (channelEnabled) ...[
-          RemoteActionButton(
-            icon: Icons.keyboard_arrow_down_rounded,
-            label: '',
-            size: 44,
-            semanticLabel: 'Channel Down',
-            repeatWhileHeld: true,
-            onPressed: onChannelDown,
+      ],
+    );
+  }
+}
+
+/// Three equal-width hardware-style buttons (Home/Back/Menu): a rounded
+/// rectangle with an icon and a small uppercase label, not a circular
+/// Material button with a loose caption underneath.
+class _HardwareButton extends ConsumerStatefulWidget {
+  const _HardwareButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.dimmed = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool dimmed;
+
+  @override
+  ConsumerState<_HardwareButton> createState() => _HardwareButtonState();
+}
+
+class _HardwareButtonState extends ConsumerState<_HardwareButton> {
+  var _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hapticsEnabled = ref.watch(
+      settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
+    );
+    final borderColor = theme.dividerColor.withValues(
+      alpha: widget.dimmed ? 0.35 : 0.7,
+    );
+
+    return PressableScale(
+      hapticsEnabled: hapticsEnabled,
+      semanticLabel: widget.label,
+      onTap: widget.onPressed,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.xs,
+          horizontal: 2,
+        ),
+        decoration: BoxDecoration(
+          color: _pressed
+              ? AppColors.glow.withValues(alpha: 0.1)
+              : theme.cardTheme.color,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: borderColor),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: 20, color: theme.iconTheme.color),
+            const SizedBox(height: 2),
+            Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The subtle entry point into "More Controls": a thin divider, a small
+/// icon, the label, and a chevron - not a large outlined CTA button.
+class _MoreControlsEntry extends StatelessWidget {
+  const _MoreControlsEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        const SizedBox(height: AppSpacing.sm),
+        Divider(color: theme.dividerColor, height: 1),
+        PressableScale(
+          hapticsEnabled: false,
+          semanticLabel: 'More controls',
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.apps_rounded,
+                  size: 18,
+                  color: theme.colorScheme.secondary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text('More Controls', style: theme.textTheme.bodyMedium),
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: theme.colorScheme.secondary,
+                ),
+              ],
+            ),
           ),
-          RemoteActionButton(
-            icon: Icons.keyboard_arrow_up_rounded,
-            label: '',
-            size: 44,
-            semanticLabel: 'Channel Up',
-            repeatWhileHeld: true,
-            onPressed: onChannelUp,
-          ),
-        ],
+        ),
       ],
     );
   }
@@ -526,6 +691,7 @@ class _ConnectionBanner extends StatelessWidget {
 class _DeviceHeader extends StatelessWidget {
   const _DeviceHeader({
     required this.deviceName,
+    required this.platform,
     required this.connectionState,
     required this.powerEnabled,
     required this.onPower,
@@ -533,6 +699,7 @@ class _DeviceHeader extends StatelessWidget {
   });
 
   final String deviceName;
+  final TvPlatform platform;
   final TvConnectionState connectionState;
   final bool powerEnabled;
   final VoidCallback onPower;
@@ -541,65 +708,84 @@ class _DeviceHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final surfaces = theme.extension<AppSurfaceColors>();
 
+    // Integrated into the remote, not a settings-tile card: a plain row,
+    // not a bordered/backgrounded container.
     return Row(
       children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: surfaces?.surface,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: surfaces?.border ?? theme.dividerColor),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: theme.cardTheme.color,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.6),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: PressableScale(
-              hapticsEnabled: false,
-              semanticLabel: 'Switch TV, currently $deviceName',
-              onTap: onSwitchTv,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.smart_display_rounded,
-                      size: 18,
-                      color: theme.colorScheme.secondary,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.smart_display_rounded,
+            size: 18,
+            color: theme.colorScheme.secondary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: PressableScale(
+            hapticsEnabled: false,
+            semanticLabel: 'Switch TV, currently $deviceName',
+            onTap: onSwitchTv,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        deviceName,
+                        style: theme.textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            deviceName,
-                            style: theme.textTheme.titleSmall,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          ConnectionStatusIndicator(
-                            state: connectionState,
-                            compact: false,
+                          ConnectionStatusIndicator(state: connectionState),
+                          Flexible(
+                            child: Text(
+                              ' · ${platform.displayName}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.secondary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Icon(Icons.expand_more_rounded, size: 20),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 18,
+                  color: theme.colorScheme.secondary,
+                ),
+              ],
             ),
           ),
         ),
         if (powerEnabled) ...[
           const SizedBox(width: AppSpacing.sm),
-          IconButton.filledTonal(
-            onPressed: onPower,
-            icon: const Icon(Icons.power_settings_new_rounded),
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: IconButton.filledTonal(
+              padding: EdgeInsets.zero,
+              onPressed: onPower,
+              icon: const Icon(Icons.power_settings_new_rounded, size: 18),
+            ),
           ),
         ],
       ],

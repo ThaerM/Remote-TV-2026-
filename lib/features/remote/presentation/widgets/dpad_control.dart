@@ -27,6 +27,16 @@ class DpadControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     const footprint = AppControlSize.dpadDiameter + 16;
+    // A single physical control surface: one near-black/graphite disc,
+    // not four Material buttons scattered around a circle - so the
+    // housing is deliberately darker than the panel it sits on.
+    final discColor = theme.brightness == Brightness.dark
+        ? AppColors.darkSurface
+        : theme.cardTheme.color;
+    final borderColor = theme.dividerColor.withValues(
+      alpha: theaterModeEnabled ? 0.35 : 0.6,
+    );
+
     return SizedBox(
       width: footprint,
       height: footprint,
@@ -44,7 +54,7 @@ class DpadControl extends StatelessWidget {
               gradient: RadialGradient(
                 colors: [
                   AppColors.glow.withValues(
-                    alpha: theaterModeEnabled ? 0.05 : 0.12,
+                    alpha: theaterModeEnabled ? 0.04 : 0.1,
                   ),
                   AppColors.glow.withValues(alpha: 0),
                 ],
@@ -56,8 +66,20 @@ class DpadControl extends StatelessWidget {
             height: AppControlSize.dpadDiameter,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: theme.cardTheme.color,
-              border: Border.all(color: theme.dividerColor),
+              color: discColor,
+              border: Border.all(color: borderColor),
+            ),
+          ),
+          // Faint radial spokes at the four compass points - the subtle
+          // separation lines a physical D-pad's cross housing has
+          // between its Up/Down/Left/Right zones.
+          SizedBox(
+            width: AppControlSize.dpadDiameter,
+            height: AppControlSize.dpadDiameter,
+            child: CustomPaint(
+              painter: _SpokesPainter(
+                color: borderColor.withValues(alpha: 0.5),
+              ),
             ),
           ),
           // The ring the Select button sits inside - separates the
@@ -68,9 +90,7 @@ class DpadControl extends StatelessWidget {
             height: 84,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.7),
-              ),
+              border: Border.all(color: borderColor),
             ),
           ),
           Positioned(
@@ -153,6 +173,14 @@ class _DpadButtonState extends ConsumerState<_DpadButton> {
       settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
     );
 
+    // The OK/Select button is the D-pad's visual hero: a dark hardware
+    // button with a restrained cyan accent ring and glow, not a solid
+    // brand-green fill - the four directional zones stay unaccented so
+    // the accent reads as "this is the one that matters."
+    final okFill = theme.brightness == Brightness.dark
+        ? AppColors.darkSurfaceRaised
+        : theme.cardTheme.color;
+
     return PressableScale(
       hapticsEnabled: hapticsEnabled,
       semanticLabel: widget.semanticLabel,
@@ -166,26 +194,71 @@ class _DpadButtonState extends ConsumerState<_DpadButton> {
         height: size,
         decoration: BoxDecoration(
           color: widget.isPrimary
-              ? theme.colorScheme.primary
+              ? okFill
               : (_pressed
-                    ? theme.colorScheme.primary.withValues(alpha: 0.14)
+                    ? AppColors.glow.withValues(alpha: 0.14)
                     : Colors.transparent),
           shape: BoxShape.circle,
-          border: !widget.isPrimary && _pressed
+          border: widget.isPrimary
               ? Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  color: AppColors.glow.withValues(alpha: _pressed ? 1 : 0.7),
+                  width: 1.5,
                 )
+              : (_pressed
+                    ? Border.all(color: AppColors.glow.withValues(alpha: 0.5))
+                    : null),
+          boxShadow: widget.isPrimary
+              ? [
+                  BoxShadow(
+                    color: AppColors.glow.withValues(
+                      alpha: _pressed ? 0.45 : 0.25,
+                    ),
+                    blurRadius: _pressed ? 14 : 8,
+                    spreadRadius: 0.5,
+                  ),
+                ]
               : null,
         ),
         alignment: Alignment.center,
         child: Icon(
           widget.icon,
           size: widget.iconSize,
-          color: widget.isPrimary
-              ? theme.colorScheme.onPrimary
-              : theme.iconTheme.color,
+          color: widget.isPrimary ? AppColors.glow : theme.iconTheme.color,
         ),
       ),
     );
   }
+}
+
+class _SpokesPainter extends CustomPainter {
+  const _SpokesPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    final center = Offset(size.width / 2, size.height / 2);
+    const innerRadius = 42.0;
+    final outerRadius = size.width / 2 - 4;
+    const directions = [
+      Offset(0, -1), // top
+      Offset(1, 0), // right
+      Offset(0, 1), // bottom
+      Offset(-1, 0), // left
+    ];
+    for (final direction in directions) {
+      canvas.drawLine(
+        center + direction * innerRadius,
+        center + direction * outerRadius,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpokesPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

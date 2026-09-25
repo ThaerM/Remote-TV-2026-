@@ -41,7 +41,7 @@ void main() {
       await tester.pumpWidget(_wrap(const TvSessionState()));
 
       expect(find.text('No TV connected'), findsOneWidget);
-      expect(find.text('Home'), findsNothing);
+      expect(find.text('HOME'), findsNothing);
     });
 
     testWidgets('hides volume/mute/channel/media when unsupported', (
@@ -53,13 +53,13 @@ void main() {
         _wrap(_connectedState(capabilities: const TvCapabilities(dpad: true))),
       );
 
-      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('HOME'), findsOneWidget);
       expect(find.bySemanticsLabel('Volume Up'), findsNothing);
       expect(find.bySemanticsLabel('Mute'), findsNothing);
       expect(find.bySemanticsLabel('Channel Up'), findsNothing);
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
-      // "More controls" only appears when something actually lives in it.
-      expect(find.text('More controls'), findsNothing);
+      // "More Controls" only appears when something actually lives in it.
+      expect(find.text('More Controls'), findsNothing);
 
       semantics.dispose();
     });
@@ -132,9 +132,9 @@ void main() {
 
         expect(find.text('Keyboard'), findsNothing);
         expect(find.text('Voice'), findsNothing);
-        expect(find.text('More controls'), findsOneWidget);
+        expect(find.text('More Controls'), findsOneWidget);
 
-        await tester.tap(find.text('More controls'));
+        await tester.tap(find.text('More Controls'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
 
@@ -161,9 +161,9 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Back'), findsOneWidget);
-      expect(find.text('Menu'), findsOneWidget);
+      expect(find.text('HOME'), findsOneWidget);
+      expect(find.text('BACK'), findsOneWidget);
+      expect(find.text('MENU'), findsOneWidget);
     });
   });
 }

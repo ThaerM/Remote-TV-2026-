@@ -26,7 +26,16 @@ void main() {
     },
   );
 
-  testWidgets('keyboard and voice live in the sheet as advanced controls', (
+  testWidgets('the sheet has a "More Controls" title and a close button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_sheet(const TvCapabilities(), []));
+
+    expect(find.text('More Controls'), findsOneWidget);
+    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+  });
+
+  testWidgets('keyboard, voice and guide live in the sheet as bottom actions', (
     tester,
   ) async {
     final sent = <TvCommand>[];
@@ -36,7 +45,11 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: SecondaryControlsSheet(
-              capabilities: const TvCapabilities(keyboard: true, voice: true),
+              capabilities: const TvCapabilities(
+                dpad: true,
+                keyboard: true,
+                voice: true,
+              ),
               onCommand: sent.add,
               onOpenKeyboard: () => keyboardOpened = true,
             ),
@@ -45,9 +58,9 @@ void main() {
       ),
     );
 
-    expect(find.text('Advanced controls'), findsOneWidget);
     expect(find.text('Keyboard'), findsOneWidget);
     expect(find.text('Voice'), findsOneWidget);
+    expect(find.text('Guide'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.keyboard_alt_outlined));
     await tester.pump();
@@ -56,6 +69,26 @@ void main() {
     await tester.tap(find.byIcon(Icons.mic_rounded));
     await tester.pump();
     expect(sent.single.key, TvCommandKey.voiceStart);
+  });
+
+  testWidgets('Guide is hidden without dpad, or when the device lacks it', (
+    tester,
+  ) async {
+    final sent = <TvCommand>[];
+    await tester.pumpWidget(_sheet(const TvCapabilities(keyboard: true), sent));
+    expect(find.text('Guide'), findsNothing);
+
+    await tester.pumpWidget(
+      _sheet(
+        const TvCapabilities(
+          dpad: true,
+          keyboard: true,
+          unsupportedKeys: {TvCommandKey.guide},
+        ),
+        sent,
+      ),
+    );
+    expect(find.text('Guide'), findsNothing);
   });
 
   testWidgets('numeric keypad and color keys are unaffected by the media '

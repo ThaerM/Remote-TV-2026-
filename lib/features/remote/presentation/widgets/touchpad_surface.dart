@@ -101,9 +101,18 @@ class _TouchpadSurfaceState extends ConsumerState<TouchpadSurface> {
           width: double.infinity,
           height: AppControlSize.dpadDiameter + 40,
           decoration: BoxDecoration(
-            color: theme.cardTheme.color,
+            // Same graphite housing tone as DpadControl's disc - the two
+            // layout modes are one physical surface, not two different
+            // materials.
+            color: theme.brightness == Brightness.dark
+                ? AppColors.darkSurface
+                : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: theme.dividerColor),
+            border: Border.all(
+              color: theme.dividerColor.withValues(
+                alpha: widget.theaterModeEnabled ? 0.35 : 0.6,
+              ),
+            ),
             gradient: RadialGradient(
               radius: 1.2,
               colors: [

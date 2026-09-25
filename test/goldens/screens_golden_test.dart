@@ -13,6 +13,7 @@ import 'package:remote_tv_2026/features/onboarding/presentation/welcome_screen.d
 import 'package:remote_tv_2026/features/pairing/presentation/connected_success_screen.dart';
 import 'package:remote_tv_2026/features/pairing/presentation/pairing_screen.dart';
 import 'package:remote_tv_2026/features/remote/presentation/remote_screen.dart';
+import 'package:remote_tv_2026/features/remote/presentation/widgets/secondary_controls_sheet.dart';
 import 'package:remote_tv_2026/features/settings/application/settings_controller.dart';
 import 'package:remote_tv_2026/features/settings/presentation/settings_screen.dart';
 import 'package:remote_tv_2026/tv/application/tv_session_controller.dart';
@@ -129,6 +130,8 @@ Future<void> _golden(
     matchesGoldenFile('goldens/$name.png'),
   );
 }
+
+void _noopCommand(TvCommand command) {}
 
 void main() {
   testWidgets('about', (tester) async {
@@ -257,6 +260,58 @@ void main() {
       const RemoteScreen(),
       session: _connected,
       settings: const SettingsState(theaterModeEnabled: true),
+    );
+  });
+
+  testWidgets('remote - more controls sheet', (tester) async {
+    tester.view
+      ..physicalSize = const Size(393, 852)
+      ..devicePixelRatio = 1;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            backgroundColor: Colors.black,
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                height: 620,
+                width: double.infinity,
+                child: Material(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  clipBehavior: Clip.antiAlias,
+                  child: SecondaryControlsSheet(
+                    capabilities: TvCapabilities(
+                      dpad: true,
+                      keyboard: true,
+                      voice: true,
+                      numericKeypad: true,
+                      colorKeys: true,
+                    ),
+                    onCommand: _noopCommand,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/remote_more_controls_dark.png'),
     );
   });
 

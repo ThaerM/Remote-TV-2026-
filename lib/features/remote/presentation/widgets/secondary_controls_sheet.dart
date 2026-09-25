@@ -4,11 +4,11 @@ import '../../../../core/design/app_spacing.dart';
 import '../../../../tv/domain/tv_domain.dart';
 import 'remote_action_button.dart';
 
-/// Bottom sheet holding controls that don't need to be on-screen at all
-/// times: keyboard/voice input, the numeric keypad, and color keys. Media
-/// transport lives on the main Remote screen now - see
-/// docs/product/screen-inventory.md - this sheet is strictly for genuinely
-/// secondary controls.
+/// "More Controls" - the bottom sheet holding controls that don't need
+/// to be on-screen at all times: the numeric keypad, color keys, and
+/// keyboard/voice/guide input. Media transport lives on the main Remote
+/// screen - see docs/product/screen-inventory.md - this sheet is
+/// strictly for genuinely secondary controls.
 class SecondaryControlsSheet extends StatelessWidget {
   const SecondaryControlsSheet({
     required this.capabilities,
@@ -43,6 +43,12 @@ class SecondaryControlsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasGuide =
+        capabilities.dpad && capabilities.allows(TvCommandKey.guide);
+    final hasBottomActions =
+        capabilities.keyboard || capabilities.voice || hasGuide;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
@@ -54,48 +60,34 @@ class SecondaryControlsSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (capabilities.keyboard || capabilities.voice) ...[
-              Text(
-                'Advanced controls',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  if (capabilities.keyboard)
-                    RemoteActionButton(
-                      icon: Icons.keyboard_alt_outlined,
-                      label: 'Keyboard',
-                      onPressed: onOpenKeyboard ?? () {},
-                    ),
-                  if (capabilities.voice)
-                    RemoteActionButton(
-                      icon: Icons.mic_rounded,
-                      label: 'Voice',
-                      onPressed: () => onCommand(
-                        const TvCommand.key(TvCommandKey.voiceStart),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
+            Row(
+              children: [
+                const SizedBox(width: 40),
+                Expanded(
+                  child: Text(
+                    'More Controls',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Close',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
             if (capabilities.numericKeypad) ...[
-              Text(
-                'Number pad',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.md),
+              Text('Number pad', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
               _NumericKeypad(onCommand: onCommand),
               const SizedBox(height: AppSpacing.lg),
             ],
             if (capabilities.colorKeys) ...[
-              Text(
-                'Color keys',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.md),
+              Text('Color keys', style: theme.textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -122,7 +114,35 @@ class SecondaryControlsSheet extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: AppSpacing.lg),
             ],
+            if (hasBottomActions)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (capabilities.keyboard)
+                    RemoteActionButton(
+                      icon: Icons.keyboard_alt_outlined,
+                      label: 'Keyboard',
+                      onPressed: onOpenKeyboard ?? () {},
+                    ),
+                  if (capabilities.voice)
+                    RemoteActionButton(
+                      icon: Icons.mic_rounded,
+                      label: 'Voice',
+                      onPressed: () => onCommand(
+                        const TvCommand.key(TvCommandKey.voiceStart),
+                      ),
+                    ),
+                  if (hasGuide)
+                    RemoteActionButton(
+                      icon: Icons.grid_view_rounded,
+                      label: 'Guide',
+                      onPressed: () =>
+                          onCommand(const TvCommand.key(TvCommandKey.guide)),
+                    ),
+                ],
+              ),
           ],
         ),
       ),
@@ -183,11 +203,14 @@ class _ColorKey extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      customBorder: const CircleBorder(),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        width: 40,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
       ),
     );
   }
