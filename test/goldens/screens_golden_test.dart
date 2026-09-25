@@ -243,6 +243,16 @@ void main() {
     );
   });
 
+  testWidgets('remote - theater mode', (tester) async {
+    await _golden(
+      tester,
+      'remote_theater_mode_dark',
+      const RemoteScreen(),
+      session: _connected,
+      settings: const SettingsState(theaterModeEnabled: true),
+    );
+  });
+
   testWidgets('devices', (tester) async {
     await _golden(
       tester,

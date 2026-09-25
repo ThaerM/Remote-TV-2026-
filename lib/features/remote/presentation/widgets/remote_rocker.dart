@@ -60,10 +60,15 @@ class _RemoteRockerState extends ConsumerState<RemoteRocker> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(widget.label, style: theme.textTheme.bodySmall),
+        Text(
+          widget.label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Container(
-          width: 56,
+          width: 60,
           decoration: BoxDecoration(
             color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -85,8 +90,10 @@ class _RemoteRockerState extends ConsumerState<RemoteRocker> {
                 onTapCancel: _stopRepeating,
               ),
               Divider(height: 1, color: theme.dividerColor),
-              if (widget.icon != null)
+              if (widget.icon != null) ...[
                 Padding(padding: const EdgeInsets.all(6), child: widget.icon),
+                Divider(height: 1, color: theme.dividerColor),
+              ],
               _RockerButton(
                 icon: Icons.remove_rounded,
                 semanticLabel: widget.decreaseSemanticLabel,
@@ -131,6 +138,8 @@ class _RockerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return PressableScale(
       hapticsEnabled: hapticsEnabled,
       semanticLabel: semanticLabel,
@@ -139,10 +148,15 @@ class _RockerButton extends StatelessWidget {
       onTapDown: (_) => onTapDown(),
       onTapUp: (_) => onTapUp(),
       onTapCancel: onTapCancel,
-      child: SizedBox(
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
         width: 56,
         height: 48,
-        child: Icon(icon, color: Theme.of(context).iconTheme.color),
+        color: pressed
+            ? theme.colorScheme.primary.withValues(alpha: 0.14)
+            : Colors.transparent,
+        alignment: Alignment.center,
+        child: Icon(icon, color: theme.iconTheme.color),
       ),
     );
   }
