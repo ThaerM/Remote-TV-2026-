@@ -113,6 +113,13 @@ Future<void> _golden(
   );
   // Fixed pumps, never pumpAndSettle: some indicators repeat by design.
   await tester.pump();
+  // Real bundled app artwork (AppIcon) decodes via dart:ui's real codec
+  // APIs, not just a microtask - a fake-async pump alone leaves it
+  // un-rendered. A short real wait lets any such image actually decode
+  // before capture; harmless on screens with no artwork.
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 300)),
+  );
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 200));
   }

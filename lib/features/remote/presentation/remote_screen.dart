@@ -10,6 +10,7 @@ import '../../../core/design/widgets/pressable_scale.dart';
 import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
+import '../../apps/presentation/widgets/app_icon.dart';
 import '../../settings/application/settings_controller.dart';
 import 'widgets/connection_status_indicator.dart';
 import 'widgets/device_switcher_sheet.dart';
@@ -496,7 +497,7 @@ class _QuickAppsRow extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         SizedBox(
-          height: 92,
+          height: 100,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
@@ -543,12 +544,7 @@ class _QuickAppTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // A generic placeholder, not per-app artwork - see Step 7.
-            Icon(
-              Icons.smart_display_outlined,
-              size: 22,
-              color: theme.colorScheme.secondary,
-            ),
+            AppIcon(app: app, size: 32, bordered: false),
             const SizedBox(height: AppSpacing.xs),
             Text(
               app.name,
