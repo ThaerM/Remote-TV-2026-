@@ -26,9 +26,10 @@ class DpadControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const footprint = AppControlSize.dpadDiameter + 16;
     return SizedBox(
-      width: AppControlSize.dpadDiameter + 24,
-      height: AppControlSize.dpadDiameter + 24,
+      width: footprint,
+      height: footprint,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -36,8 +37,8 @@ class DpadControl extends StatelessWidget {
           // depth instead of a flat disc - subdued rather than removed
           // under Theater Mode, so the surface still reads as "on."
           Container(
-            width: AppControlSize.dpadDiameter + 24,
-            height: AppControlSize.dpadDiameter + 24,
+            width: footprint,
+            height: footprint,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
@@ -63,8 +64,8 @@ class DpadControl extends StatelessWidget {
           // "select" hierarchy from the four directional presses around
           // it, the way a real remote's raised center cluster reads.
           Container(
-            width: 116,
-            height: 116,
+            width: 84,
+            height: 84,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -73,7 +74,7 @@ class DpadControl extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 14,
+            top: 8,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_up_rounded,
               semanticLabel: 'Navigate Up',
@@ -81,7 +82,7 @@ class DpadControl extends StatelessWidget {
             ),
           ),
           Positioned(
-            bottom: 14,
+            bottom: 8,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_down_rounded,
               semanticLabel: 'Navigate Down',
@@ -89,7 +90,7 @@ class DpadControl extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 14,
+            left: 8,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_left_rounded,
               semanticLabel: 'Navigate Left',
@@ -97,7 +98,7 @@ class DpadControl extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 14,
+            right: 8,
             child: _DpadButton(
               icon: Icons.keyboard_arrow_right_rounded,
               semanticLabel: 'Navigate Right',
@@ -106,7 +107,7 @@ class DpadControl extends StatelessWidget {
           ),
           _DpadButton(
             icon: Icons.circle,
-            iconSize: 14,
+            iconSize: 12,
             isPrimary: true,
             semanticLabel: 'Select',
             onTap: () => onCommand(TvCommandKey.select),
@@ -122,7 +123,7 @@ class _DpadButton extends ConsumerStatefulWidget {
     required this.icon,
     required this.onTap,
     required this.semanticLabel,
-    this.iconSize = 28,
+    this.iconSize = 22,
     this.isPrimary = false,
   });
 
@@ -147,7 +148,7 @@ class _DpadButtonState extends ConsumerState<_DpadButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final size = widget.isPrimary ? 72.0 : AppControlSize.secondaryButton;
+    final size = widget.isPrimary ? 52.0 : 40.0;
     final hapticsEnabled = ref.watch(
       settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
     );

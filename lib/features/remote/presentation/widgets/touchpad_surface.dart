@@ -99,7 +99,7 @@ class _TouchpadSurfaceState extends ConsumerState<TouchpadSurface> {
         onPanEnd: _handlePanEnd,
         child: Container(
           width: double.infinity,
-          height: 260,
+          height: AppControlSize.dpadDiameter + 40,
           decoration: BoxDecoration(
             color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(AppRadius.lg),

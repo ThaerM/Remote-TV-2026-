@@ -75,7 +75,7 @@ void main() {
 
       expect(find.byType(DpadControl), findsOneWidget);
 
-      await tester.tap(find.text('Switch to touchpad'));
+      await tester.tap(find.text('Touchpad'));
       // Not pumpAndSettle: ConnectionStatusIndicator's connection-state
       // pulse repeats indefinitely by design, so it would never settle.
       await tester.pump();

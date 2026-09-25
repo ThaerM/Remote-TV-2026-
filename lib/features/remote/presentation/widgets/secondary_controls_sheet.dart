@@ -5,22 +5,30 @@ import '../../../../tv/domain/tv_domain.dart';
 import 'remote_action_button.dart';
 
 /// Bottom sheet holding controls that don't need to be on-screen at all
-/// times: numeric keypad, media transport, and color keys. Keeps the
-/// primary remote surface uncluttered per docs/product/screen-inventory.md.
+/// times: keyboard/voice input, the numeric keypad, and color keys. Media
+/// transport lives on the main Remote screen now - see
+/// docs/product/screen-inventory.md - this sheet is strictly for genuinely
+/// secondary controls.
 class SecondaryControlsSheet extends StatelessWidget {
   const SecondaryControlsSheet({
     required this.capabilities,
     required this.onCommand,
+    this.onOpenKeyboard,
     super.key,
   });
 
   final TvCapabilities capabilities;
   final void Function(TvCommand command) onCommand;
 
+  /// Opens the free-text keyboard input - kept as a caller-provided
+  /// callback since it needs its own sheet stacked above this one.
+  final VoidCallback? onOpenKeyboard;
+
   static Future<void> show(
     BuildContext context, {
     required TvCapabilities capabilities,
     required void Function(TvCommand command) onCommand,
+    VoidCallback? onOpenKeyboard,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -28,6 +36,7 @@ class SecondaryControlsSheet extends StatelessWidget {
       builder: (_) => SecondaryControlsSheet(
         capabilities: capabilities,
         onCommand: onCommand,
+        onOpenKeyboard: onOpenKeyboard,
       ),
     );
   }
@@ -35,7 +44,7 @@ class SecondaryControlsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
           0,
@@ -45,20 +54,29 @@ class SecondaryControlsSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (capabilities.mediaControls) ...[
-              Text('Media', style: Theme.of(context).textTheme.titleMedium),
+            if (capabilities.keyboard || capabilities.voice) ...[
+              Text(
+                'Advanced controls',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: AppSpacing.md),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  for (final button in _mediaButtons)
-                    if (capabilities.allows(button.key))
-                      RemoteActionButton(
-                        icon: button.icon,
-                        label: button.label,
-                        emphasized: button.key == TvCommandKey.mediaPlay,
-                        onPressed: () => onCommand(TvCommand.key(button.key)),
+                  if (capabilities.keyboard)
+                    RemoteActionButton(
+                      icon: Icons.keyboard_alt_outlined,
+                      label: 'Keyboard',
+                      onPressed: onOpenKeyboard ?? () {},
+                    ),
+                  if (capabilities.voice)
+                    RemoteActionButton(
+                      icon: Icons.mic_rounded,
+                      label: 'Voice',
+                      onPressed: () => onCommand(
+                        const TvCommand.key(TvCommandKey.voiceStart),
                       ),
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -174,23 +192,3 @@ class _ColorKey extends StatelessWidget {
     );
   }
 }
-
-const _mediaButtons = [
-  (
-    key: TvCommandKey.mediaPrevious,
-    icon: Icons.skip_previous_rounded,
-    label: 'Prev',
-  ),
-  (
-    key: TvCommandKey.mediaRewind,
-    icon: Icons.fast_rewind_rounded,
-    label: 'Rewind',
-  ),
-  (key: TvCommandKey.mediaPlay, icon: Icons.play_arrow_rounded, label: 'Play'),
-  (
-    key: TvCommandKey.mediaForward,
-    icon: Icons.fast_forward_rounded,
-    label: 'Forward',
-  ),
-  (key: TvCommandKey.mediaNext, icon: Icons.skip_next_rounded, label: 'Next'),
-];

@@ -13,36 +13,63 @@ Widget _sheet(TvCapabilities caps, List<TvCommand> sent) => ProviderScope(
 );
 
 void main() {
-  testWidgets('media keys a device lacks are hidden, the rest still work', (
+  testWidgets(
+    'media controls no longer live in the sheet - they moved to the main '
+    'Remote screen',
+    (tester) async {
+      await tester.pumpWidget(
+        _sheet(const TvCapabilities(mediaControls: true), []),
+      );
+
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+      expect(find.text('Media'), findsNothing);
+    },
+  );
+
+  testWidgets('keyboard and voice live in the sheet as advanced controls', (
     tester,
   ) async {
     final sent = <TvCommand>[];
+    var keyboardOpened = false;
     await tester.pumpWidget(
-      _sheet(
-        const TvCapabilities(
-          mediaControls: true,
-          unsupportedKeys: {TvCommandKey.mediaPrevious, TvCommandKey.mediaNext},
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SecondaryControlsSheet(
+              capabilities: const TvCapabilities(keyboard: true, voice: true),
+              onCommand: sent.add,
+              onOpenKeyboard: () => keyboardOpened = true,
+            ),
+          ),
         ),
-        sent,
       ),
     );
 
-    expect(find.text('Prev'), findsNothing);
-    expect(find.text('Next'), findsNothing);
-    expect(find.text('Rewind'), findsOneWidget);
+    expect(find.text('Advanced controls'), findsOneWidget);
+    expect(find.text('Keyboard'), findsOneWidget);
+    expect(find.text('Voice'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.play_arrow_rounded));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(sent.single.key, TvCommandKey.mediaPlay);
+    await tester.tap(find.byIcon(Icons.keyboard_alt_outlined));
+    await tester.pump();
+    expect(keyboardOpened, isTrue);
+
+    await tester.tap(find.byIcon(Icons.mic_rounded));
+    await tester.pump();
+    expect(sent.single.key, TvCommandKey.voiceStart);
   });
 
-  testWidgets('full media support shows all five buttons', (tester) async {
+  testWidgets('numeric keypad and color keys are unaffected by the media '
+      'controls move', (tester) async {
+    final sent = <TvCommand>[];
     await tester.pumpWidget(
-      _sheet(const TvCapabilities(mediaControls: true), []),
+      _sheet(const TvCapabilities(numericKeypad: true, colorKeys: true), sent),
     );
 
-    for (final label in ['Prev', 'Rewind', 'Play', 'Forward', 'Next']) {
-      expect(find.text(label), findsOneWidget);
-    }
+    expect(find.text('Number pad'), findsOneWidget);
+    expect(find.text('Color keys'), findsOneWidget);
+
+    await tester.tap(find.text('5'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(sent.single.key, TvCommandKey.digit5);
   });
 }

@@ -16,13 +16,38 @@ import 'widgets/connection_status_indicator.dart';
 import 'widgets/device_switcher_sheet.dart';
 import 'widgets/dpad_control.dart';
 import 'widgets/remote_action_button.dart';
-import 'widgets/remote_rocker.dart';
 import 'widgets/secondary_controls_sheet.dart';
 import 'widgets/touchpad_surface.dart';
+
+const _mediaButtons = [
+  (
+    key: TvCommandKey.mediaPrevious,
+    icon: Icons.skip_previous_rounded,
+    label: 'Prev',
+  ),
+  (
+    key: TvCommandKey.mediaRewind,
+    icon: Icons.fast_rewind_rounded,
+    label: 'Rewind',
+  ),
+  (key: TvCommandKey.mediaPlay, icon: Icons.play_arrow_rounded, label: 'Play'),
+  (
+    key: TvCommandKey.mediaForward,
+    icon: Icons.fast_forward_rounded,
+    label: 'Forward',
+  ),
+  (key: TvCommandKey.mediaNext, icon: Icons.skip_next_rounded, label: 'Next'),
+];
 
 /// The primary control surface. Entirely capability-driven: every control
 /// group is shown only when the connected device reports support for it -
 /// see docs/architecture/provider-system.md ("Capability-driven design").
+///
+/// Deliberately compact: the goal is for the core controls (D-pad, Home/
+/// Back/Menu, Volume/Mute/Channel, and media transport) to fit in one view
+/// on a standard phone without scrolling. Only genuinely secondary
+/// controls (number pad, color keys, keyboard, voice) live behind
+/// "More controls".
 class RemoteScreen extends ConsumerWidget {
   const RemoteScreen({super.key});
 
@@ -43,181 +68,177 @@ class RemoteScreen extends ConsumerWidget {
     final isLive = session.isConnected;
 
     final theaterMode = settings.theaterModeEnabled;
+    final hasSecondaryControls =
+        caps.numericKeypad || caps.colorKeys || caps.keyboard || caps.voice;
 
     return Scaffold(
       backgroundColor: theaterMode ? Colors.black : null,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          children: [
-            _DeviceHeader(
-              deviceName: session.selectedDevice!.name,
-              connectionState: session.connectionState,
-              powerEnabled: caps.power,
-              onPower: () => send(TvCommandKey.power),
-              onSwitchTv: () => DeviceSwitcherSheet.show(context),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            if (caps.launchApps && session.applications.isNotEmpty) ...[
-              _QuickAppsRow(
-                applications: session.applications,
-                onLaunch: (app) =>
-                    notifier.sendCommand(TvCommand.launchApp(app.id)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            children: [
+              _DeviceHeader(
+                deviceName: session.selectedDevice!.name,
+                connectionState: session.connectionState,
+                powerEnabled: caps.power,
+                onPower: () => send(TvCommandKey.power),
+                onSwitchTv: () => DeviceSwitcherSheet.show(context),
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            // One housing for the whole control surface - a physical
-            // remote is a single object, not a stack of separate cards.
-            _RemoteControlPanel(
-              isLive: isLive,
-              theaterModeEnabled: theaterMode,
-              child: Column(
-                children: [
-                  if (caps.dpad)
-                    AnimatedSwitcher(
-                      duration: AppMotion.panel,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(scale: animation, child: child),
-                      ),
-                      child:
-                          settings.navigationStyle == RemoteNavigationStyle.dpad
-                          ? DpadControl(
-                              key: const ValueKey('dpad'),
-                              theaterModeEnabled: theaterMode,
-                              onCommand: send,
-                            )
-                          : SizedBox(
-                              key: const ValueKey('touchpad'),
-                              width: AppControlSize.dpadDiameter + 60,
-                              child: TouchpadSurface(
+              if (caps.launchApps && session.applications.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _QuickAppsRow(
+                  applications: session.applications,
+                  onLaunch: (app) =>
+                      notifier.sendCommand(TvCommand.launchApp(app.id)),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              // One housing for the whole control surface - a physical
+              // remote is a single object, not a stack of separate cards.
+              _RemoteControlPanel(
+                isLive: isLive,
+                theaterModeEnabled: theaterMode,
+                child: Column(
+                  children: [
+                    if (caps.dpad) ...[
+                      AnimatedSwitcher(
+                        duration: AppMotion.panel,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: animation,
+                            child: child,
+                          ),
+                        ),
+                        child:
+                            settings.navigationStyle ==
+                                RemoteNavigationStyle.dpad
+                            ? DpadControl(
+                                key: const ValueKey('dpad'),
                                 theaterModeEnabled: theaterMode,
                                 onCommand: send,
+                              )
+                            : SizedBox(
+                                key: const ValueKey('touchpad'),
+                                width: AppControlSize.dpadDiameter + 40,
+                                child: TouchpadSurface(
+                                  theaterModeEnabled: theaterMode,
+                                  onCommand: send,
+                                ),
                               ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _NavStyleToggle(
+                        style: settings.navigationStyle,
+                        onToggle: () => ref
+                            .read(settingsControllerProvider.notifier)
+                            .setNavigationStyle(
+                              settings.navigationStyle ==
+                                      RemoteNavigationStyle.dpad
+                                  ? RemoteNavigationStyle.touchpad
+                                  : RemoteNavigationStyle.dpad,
                             ),
-                    ),
-                  if (caps.dpad) const SizedBox(height: AppSpacing.sm),
-                  if (caps.dpad)
-                    TextButton.icon(
-                      onPressed: () => ref
-                          .read(settingsControllerProvider.notifier)
-                          .setNavigationStyle(
-                            settings.navigationStyle ==
-                                    RemoteNavigationStyle.dpad
-                                ? RemoteNavigationStyle.touchpad
-                                : RemoteNavigationStyle.dpad,
-                          ),
-                      icon: Icon(
-                        settings.navigationStyle == RemoteNavigationStyle.dpad
-                            ? Icons.touch_app_outlined
-                            : Icons.gamepad_outlined,
-                        size: 18,
                       ),
-                      label: Text(
-                        settings.navigationStyle == RemoteNavigationStyle.dpad
-                            ? 'Switch to touchpad'
-                            : 'Switch to D-pad',
-                      ),
-                    ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Wrap(
-                    alignment: WrapAlignment.spaceEvenly,
-                    runSpacing: AppSpacing.md,
-                    children: [
-                      if (caps.allows(TvCommandKey.home))
-                        RemoteActionButton(
-                          icon: Icons.home_rounded,
-                          label: 'Home',
-                          onPressed: () => send(TvCommandKey.home),
-                        ),
-                      if (caps.allows(TvCommandKey.back))
-                        RemoteActionButton(
-                          icon: Icons.arrow_back_rounded,
-                          label: 'Back',
-                          onPressed: () => send(TvCommandKey.back),
-                        ),
-                      if (caps.allows(TvCommandKey.menu))
-                        RemoteActionButton(
-                          icon: Icons.menu_rounded,
-                          label: 'Menu',
-                          onPressed: () => send(TvCommandKey.menu),
-                        ),
-                      if (caps.keyboard)
-                        RemoteActionButton(
-                          icon: Icons.keyboard_alt_outlined,
-                          label: 'Keyboard',
-                          onPressed: () =>
-                              _showKeyboardSheet(context, ref, notifier),
-                        ),
-                      if (caps.voice)
-                        RemoteActionButton(
-                          icon: Icons.mic_rounded,
-                          label: 'Voice',
-                          onPressed: () => send(TvCommandKey.voiceStart),
-                        ),
+                      const SizedBox(height: AppSpacing.md),
                     ],
-                  ),
-                  if (caps.volume || caps.channel) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    Divider(color: Theme.of(context).dividerColor, height: 1),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (caps.volume)
-                          RemoteRocker(
-                            label: 'Volume',
-                            increaseSemanticLabel: 'Volume Up',
-                            decreaseSemanticLabel: 'Volume Down',
-                            onIncrease: () => send(TvCommandKey.volumeUp),
-                            onDecrease: () => send(TvCommandKey.volumeDown),
-                            icon: caps.mute
-                                ? RemoteActionButton(
-                                    icon: Icons.volume_off_rounded,
-                                    label: '',
-                                    size: 36,
-                                    semanticLabel: 'Mute',
-                                    onPressed: () => send(TvCommandKey.mute),
-                                  )
-                                : null,
-                          ),
-                        if (caps.channel)
-                          RemoteRocker(
-                            label: 'Channel',
-                            increaseSemanticLabel: 'Channel Up',
-                            decreaseSemanticLabel: 'Channel Down',
-                            onIncrease: () => send(TvCommandKey.channelUp),
-                            onDecrease: () => send(TvCommandKey.channelDown),
-                          ),
-                      ],
-                    ),
+                    if (caps.allows(TvCommandKey.home) ||
+                        caps.allows(TvCommandKey.back) ||
+                        caps.allows(TvCommandKey.menu))
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          if (caps.allows(TvCommandKey.home))
+                            RemoteActionButton(
+                              icon: Icons.home_rounded,
+                              label: 'Home',
+                              size: 48,
+                              onPressed: () => send(TvCommandKey.home),
+                            ),
+                          if (caps.allows(TvCommandKey.back))
+                            RemoteActionButton(
+                              icon: Icons.arrow_back_rounded,
+                              label: 'Back',
+                              size: 48,
+                              onPressed: () => send(TvCommandKey.back),
+                            ),
+                          if (caps.allows(TvCommandKey.menu))
+                            RemoteActionButton(
+                              icon: Icons.menu_rounded,
+                              label: 'Menu',
+                              size: 48,
+                              onPressed: () => send(TvCommandKey.menu),
+                            ),
+                        ],
+                      ),
+                    if (caps.volume || caps.channel) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Divider(color: Theme.of(context).dividerColor, height: 1),
+                      const SizedBox(height: AppSpacing.md),
+                      _VolumeChannelRow(
+                        volumeEnabled: caps.volume,
+                        muteEnabled: caps.mute,
+                        channelEnabled: caps.channel,
+                        onVolumeUp: () => send(TvCommandKey.volumeUp),
+                        onVolumeDown: () => send(TvCommandKey.volumeDown),
+                        onMute: () => send(TvCommandKey.mute),
+                        onChannelUp: () => send(TvCommandKey.channelUp),
+                        onChannelDown: () => send(TvCommandKey.channelDown),
+                      ),
+                    ],
+                    if (caps.mediaControls) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Divider(color: Theme.of(context).dividerColor, height: 1),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          for (final button in _mediaButtons)
+                            if (caps.allows(button.key))
+                              RemoteActionButton(
+                                icon: button.icon,
+                                label: '',
+                                size: 44,
+                                semanticLabel: button.label,
+                                emphasized:
+                                    button.key == TvCommandKey.mediaPlay,
+                                onPressed: () => notifier.sendCommand(
+                                  TvCommand.key(button.key),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            OutlinedButton.icon(
-              onPressed: () => SecondaryControlsSheet.show(
-                context,
-                capabilities: caps,
-                onCommand: notifier.sendCommand,
-              ),
-              icon: const Icon(Icons.apps_rounded),
-              label: const Text('More controls'),
-            ),
-            if (!isLive) ...[
               const SizedBox(height: AppSpacing.md),
-              _ConnectionBanner(state: session.connectionState),
+              if (hasSecondaryControls)
+                OutlinedButton.icon(
+                  onPressed: () => SecondaryControlsSheet.show(
+                    context,
+                    capabilities: caps,
+                    onCommand: notifier.sendCommand,
+                    onOpenKeyboard: () =>
+                        _showKeyboardSheet(context, ref, notifier),
+                  ),
+                  icon: const Icon(Icons.apps_rounded),
+                  label: const Text('More controls'),
+                ),
+              if (!isLive) ...[
+                const SizedBox(height: AppSpacing.md),
+                _ConnectionBanner(state: session.connectionState),
+              ],
+              if (session.lastError != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  session.lastError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
             ],
-            if (session.lastError != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                session.lastError!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -298,11 +319,11 @@ class RemoteScreen extends ConsumerWidget {
 }
 
 /// The single housing for the whole control surface - D-pad/touchpad,
-/// Home/Back/Menu/Keyboard/Voice, and the volume/channel rockers all sit
-/// on one raised surface instead of reading as separate unrelated cards,
-/// the way a real remote is one physical object. Dimmed (never hidden)
-/// while the session isn't live, so the layout never jumps during a
-/// brief reconnect.
+/// Home/Back/Menu, Volume/Mute/Channel, and media transport all sit on
+/// one raised surface instead of reading as separate unrelated cards, the
+/// way a real remote is one physical object. Dimmed (never hidden) while
+/// the session isn't live, so the layout never jumps during a brief
+/// reconnect.
 class _RemoteControlPanel extends StatelessWidget {
   const _RemoteControlPanel({
     required this.isLive,
@@ -328,7 +349,7 @@ class _RemoteControlPanel extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
-            vertical: AppSpacing.lg,
+            vertical: AppSpacing.md,
           ),
           decoration: BoxDecoration(
             // Theater Mode keeps the housing dark and unobtrusive rather
@@ -340,6 +361,135 @@ class _RemoteControlPanel extends StatelessWidget {
           child: child,
         ),
       ),
+    );
+  }
+}
+
+/// A compact pill toggle between D-pad and touchpad navigation - replaces
+/// a full-width text row so the switch reads as a secondary affordance,
+/// not another primary control.
+class _NavStyleToggle extends StatelessWidget {
+  const _NavStyleToggle({required this.style, required this.onToggle});
+
+  final RemoteNavigationStyle style;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDpad = style == RemoteNavigationStyle.dpad;
+
+    return PressableScale(
+      hapticsEnabled: false,
+      semanticLabel: isDpad ? 'Switch to touchpad' : 'Switch to D-pad',
+      onTap: onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 4,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isDpad ? Icons.touch_app_outlined : Icons.gamepad_outlined,
+              size: 14,
+              color: theme.colorScheme.secondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isDpad ? 'Touchpad' : 'D-pad',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.secondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Volume, Mute, and Channel as one compact horizontal row of small
+/// circular controls - a rocker-style pair on each side of Mute - instead
+/// of a tall standalone section. Long-press repeats, matching
+/// [RemoteActionButton]'s existing repeat behavior.
+class _VolumeChannelRow extends StatelessWidget {
+  const _VolumeChannelRow({
+    required this.volumeEnabled,
+    required this.muteEnabled,
+    required this.channelEnabled,
+    required this.onVolumeUp,
+    required this.onVolumeDown,
+    required this.onMute,
+    required this.onChannelUp,
+    required this.onChannelDown,
+  });
+
+  final bool volumeEnabled;
+  final bool muteEnabled;
+  final bool channelEnabled;
+  final VoidCallback onVolumeUp;
+  final VoidCallback onVolumeDown;
+  final VoidCallback onMute;
+  final VoidCallback onChannelUp;
+  final VoidCallback onChannelDown;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        if (volumeEnabled) ...[
+          RemoteActionButton(
+            icon: Icons.remove_rounded,
+            label: '',
+            size: 44,
+            semanticLabel: 'Volume Down',
+            repeatWhileHeld: true,
+            onPressed: onVolumeDown,
+          ),
+          if (muteEnabled)
+            RemoteActionButton(
+              icon: Icons.volume_off_rounded,
+              label: '',
+              size: 40,
+              semanticLabel: 'Mute',
+              onPressed: onMute,
+            ),
+          RemoteActionButton(
+            icon: Icons.add_rounded,
+            label: '',
+            size: 44,
+            semanticLabel: 'Volume Up',
+            repeatWhileHeld: true,
+            onPressed: onVolumeUp,
+          ),
+        ],
+        if (channelEnabled) ...[
+          RemoteActionButton(
+            icon: Icons.keyboard_arrow_down_rounded,
+            label: '',
+            size: 44,
+            semanticLabel: 'Channel Down',
+            repeatWhileHeld: true,
+            onPressed: onChannelDown,
+          ),
+          RemoteActionButton(
+            icon: Icons.keyboard_arrow_up_rounded,
+            label: '',
+            size: 44,
+            semanticLabel: 'Channel Up',
+            repeatWhileHeld: true,
+            onPressed: onChannelUp,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -409,14 +559,14 @@ class _DeviceHeader extends StatelessWidget {
               onTap: onSwitchTv,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.smart_display_rounded,
-                      size: 20,
+                      size: 18,
                       color: theme.colorScheme.secondary,
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -427,15 +577,18 @@ class _DeviceHeader extends StatelessWidget {
                         children: [
                           Text(
                             deviceName,
-                            style: theme.textTheme.titleMedium,
+                            style: theme.textTheme.titleSmall,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          ConnectionStatusIndicator(state: connectionState),
+                          ConnectionStatusIndicator(
+                            state: connectionState,
+                            compact: false,
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
-                    const Icon(Icons.expand_more_rounded),
+                    Icon(Icons.expand_more_rounded, size: 20),
                   ],
                 ),
               ),
@@ -470,36 +623,33 @@ class _QuickAppsRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Padding(
-              padding: EdgeInsets.only(left: AppSpacing.md),
+              padding: EdgeInsets.only(left: AppSpacing.xs),
               child: SectionHeader('Apps'),
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: InkWell(
-                onTap: () => context.push(AppRoutes.apps),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: AppSpacing.xs,
-                  ),
-                  child: Text(
-                    'See all',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
+            InkWell(
+              onTap: () => context.push(AppRoutes.apps),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Text(
+                  'See all',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 2),
         SizedBox(
-          height: 100,
+          height: 72,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             scrollDirection: Axis.horizontal,
             itemCount: applications.length,
             separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
@@ -530,10 +680,10 @@ class _QuickAppTile extends StatelessWidget {
       semanticLabel: 'Open ${app.name}',
       onTap: onTap,
       child: Container(
-        width: 96,
+        width: 64,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xs,
-          vertical: AppSpacing.sm,
+          vertical: 6,
         ),
         decoration: BoxDecoration(
           color: theme.cardTheme.color,
@@ -544,12 +694,12 @@ class _QuickAppTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppIcon(app: app, size: 32, bordered: false),
-            const SizedBox(height: AppSpacing.xs),
+            AppIcon(app: app, size: 24, bordered: false),
+            const SizedBox(height: 4),
             Text(
               app.name,
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
             ),

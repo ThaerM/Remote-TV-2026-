@@ -44,24 +44,108 @@ void main() {
       expect(find.text('Home'), findsNothing);
     });
 
-    testWidgets('hides volume/mute/keyboard/voice when unsupported', (
+    testWidgets('hides volume/mute/channel/media when unsupported', (
       tester,
     ) async {
+      final semantics = tester.ensureSemantics();
+
       await tester.pumpWidget(
         _wrap(_connectedState(capabilities: const TvCapabilities(dpad: true))),
       );
 
       expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Volume'), findsNothing);
-      expect(find.text('Keyboard'), findsNothing);
-      expect(find.text('Voice'), findsNothing);
+      expect(find.bySemanticsLabel('Volume Up'), findsNothing);
+      expect(find.bySemanticsLabel('Mute'), findsNothing);
+      expect(find.bySemanticsLabel('Channel Up'), findsNothing);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+      // "More controls" only appears when something actually lives in it.
+      expect(find.text('More controls'), findsNothing);
+
+      semantics.dispose();
     });
 
-    testWidgets('shows volume, keyboard and voice when supported', (
+    testWidgets(
+      'shows volume/mute/channel directly on the main screen - not behind '
+      'More controls',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _wrap(
+            _connectedState(
+              capabilities: const TvCapabilities(
+                dpad: true,
+                volume: true,
+                mute: true,
+                channel: true,
+              ),
+            ),
+          ),
+        );
+
+        // Compact icon-only controls - accessible via semantics, not a
+        // visible "Volume"/"Channel" label taking up vertical space.
+        expect(find.bySemanticsLabel('Volume Up'), findsOneWidget);
+        expect(find.bySemanticsLabel('Volume Down'), findsOneWidget);
+        expect(find.bySemanticsLabel('Mute'), findsOneWidget);
+        expect(find.bySemanticsLabel('Channel Up'), findsOneWidget);
+        expect(find.bySemanticsLabel('Channel Down'), findsOneWidget);
+
+        semantics.dispose();
+      },
+    );
+
+    testWidgets(
+      'shows media transport directly on the main screen when supported',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            _connectedState(
+              capabilities: const TvCapabilities(
+                dpad: true,
+                mediaControls: true,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.fast_rewind_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.fast_forward_rounded), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'keyboard and voice move into More controls, not the main row',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            _connectedState(
+              capabilities: const TvCapabilities(
+                dpad: true,
+                keyboard: true,
+                voice: true,
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Keyboard'), findsNothing);
+        expect(find.text('Voice'), findsNothing);
+        expect(find.text('More controls'), findsOneWidget);
+
+        await tester.tap(find.text('More controls'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('Keyboard'), findsOneWidget);
+        expect(find.text('Voice'), findsOneWidget);
+      },
+    );
+
+    testWidgets('the D-pad and Home/Back/Menu row fit in one compact panel', (
       tester,
     ) async {
-      final semantics = tester.ensureSemantics();
-
       await tester.pumpWidget(
         _wrap(
           _connectedState(
@@ -69,21 +153,17 @@ void main() {
               dpad: true,
               volume: true,
               mute: true,
-              keyboard: true,
-              voice: true,
+              channel: true,
+              mediaControls: true,
             ),
           ),
         ),
       );
 
-      expect(find.text('Volume'), findsOneWidget);
-      // Mute is an icon-only control inside the volume rocker; its label
-      // is accessible (Semantics), not printed on-screen.
-      expect(find.bySemanticsLabel('Mute'), findsOneWidget);
-      expect(find.text('Keyboard'), findsOneWidget);
-      expect(find.text('Voice'), findsOneWidget);
-
-      semantics.dispose();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Back'), findsOneWidget);
+      expect(find.text('Menu'), findsOneWidget);
     });
   });
 }

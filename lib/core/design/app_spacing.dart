@@ -30,7 +30,7 @@ class AppControlSize {
 
   static const double primaryButton = 64;
   static const double secondaryButton = 52;
-  static const double dpadDiameter = 220;
+  static const double dpadDiameter = 160;
   static const double minTouchTarget = 48;
 }
 
