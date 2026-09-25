@@ -40,8 +40,8 @@ class _RemoteActionButtonState extends ConsumerState<RemoteActionButton> {
   bool _held = false;
 
   void _startRepeating() async {
+    setState(() => _held = true);
     if (!widget.repeatWhileHeld) return;
-    _held = true;
     await Future<void>.delayed(const Duration(milliseconds: 400));
     while (_held && mounted) {
       widget.onPressed();
@@ -50,7 +50,8 @@ class _RemoteActionButtonState extends ConsumerState<RemoteActionButton> {
   }
 
   void _stopRepeating() {
-    _held = false;
+    if (!mounted) return;
+    setState(() => _held = false);
   }
 
   @override

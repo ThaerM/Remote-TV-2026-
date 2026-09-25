@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/about/presentation/about_screen.dart';
 import '../../features/apps/presentation/apps_screen.dart';
 import '../../features/casting/presentation/cast_screen.dart';
 import '../../features/devices/presentation/devices_screen.dart';
 import '../../features/discovery/presentation/discovery_screen.dart';
+import '../../features/onboarding/application/onboarding_state.dart';
 import '../../features/onboarding/presentation/welcome_screen.dart';
 import '../../features/pairing/presentation/connected_success_screen.dart';
 import '../../features/pairing/presentation/pairing_screen.dart';
@@ -28,11 +30,15 @@ abstract final class AppRoutes {
   static const remoteLayoutSettings = '/settings/remote-layout';
   static const remoteBehaviorSettings = '/settings/remote-behavior';
   static const diagnostics = '/settings/diagnostics';
+  static const about = '/settings/about';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // After the first run the app opens straight into the main shell; a TV
+  // is never required to get in.
+  final onboarded = ref.read(onboardingCompletedAtLaunchProvider);
   return GoRouter(
-    initialLocation: AppRoutes.welcome,
+    initialLocation: onboarded ? AppRoutes.remote : AppRoutes.welcome,
     routes: [
       GoRoute(
         path: AppRoutes.welcome,
@@ -86,6 +92,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.diagnostics,
         builder: (context, state) => const DiagnosticsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.about,
+        builder: (context, state) => const AboutScreen(),
       ),
     ],
   );

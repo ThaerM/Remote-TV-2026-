@@ -163,13 +163,17 @@ class FakeTvProvider implements TvProvider {
       _connectionStateController.stream;
 
   @override
-  Future<List<TvDevice>> discover() async {
+  Future<TvDiscoveryOutcome> discover() async {
     _logger.info('[TV][DISCOVERY][FAKE] started');
     await Future<void>.delayed(const Duration(milliseconds: 900));
     final devices = _profiles.map((p) => p.device).toList(growable: false);
     _logger.info('[TV][DISCOVERY][FAKE] completed count=${devices.length}');
-    return devices;
+    return TvDiscoveryOutcome(devices: devices);
   }
+
+  /// Demo devices have no real address, so nothing ever answers a probe.
+  @override
+  Future<TvDevice?> probeHost(String host) async => null;
 
   @override
   Future<TvPairingRequest> connect(TvDevice device) async {

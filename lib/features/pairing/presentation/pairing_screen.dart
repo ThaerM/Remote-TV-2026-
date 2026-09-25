@@ -25,11 +25,30 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   final _codeController = TextEditingController();
   final _codeInputKey = GlobalKey<PairingCodeInputState>();
   String? _lastShownError;
+  late final TvSessionController _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = ref.read(tvSessionControllerProvider.notifier);
+  }
 
   @override
   void dispose() {
     _codeController.dispose();
+    // Leaving before pairing finished (Back, or switching tabs) cancels it;
+    // a no-op once connected.
+    Future.microtask(_session.cancelPairing);
     super.dispose();
+  }
+
+  void _leave(BuildContext context) {
+    if (!context.mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.discovery);
+    }
   }
 
   @override
@@ -44,9 +63,10 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
         context.go(AppRoutes.connectedSuccess);
         return;
       }
-      // A fresh, non-empty error while still awaiting a PIN means the
+      // A fresh, non-empty error while still awaiting a code means the
       // code we just submitted was rejected - play the error feedback
       // once per distinct error, not on every rebuild.
+      if (next.lastError == null) _lastShownError = null;
       if (next.pairingRequest is TvPinPairingRequest &&
           next.lastError != null &&
           next.lastError != _lastShownError) {
@@ -75,14 +95,27 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Enter the code shown on your television.',
+                pairingRequest.alphabet == TvPinAlphabet.hex
+                    ? 'Enter the ${pairingRequest.expectedLength}-character '
+                          'pairing code shown on your TV.'
+                    : 'Enter the ${pairingRequest.expectedLength}-digit '
+                          'pairing code shown on your TV.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (pairingRequest.alphabet == TvPinAlphabet.hex) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Numbers 0-9 and letters A-F, for example A4F29C.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               PairingCodeInput(
                 key: _codeInputKey,
                 length: pairingRequest.expectedLength,
+                alphabet: pairingRequest.alphabet,
                 controller: _codeController,
                 onSubmitted: (code) => ref
                     .read(tvSessionControllerProvider.notifier)
@@ -119,6 +152,10 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 ),
                 child: const Text('Where do I find the code?'),
               ),
+              TextButton(
+                onPressed: () => _leave(context),
+                child: const Text('Cancel'),
+              ),
             ] else if (pairingRequest is TvConfirmOnDevicePairingRequest) ...[
               const AnimatedConnectionRing(
                 active: true,
@@ -131,6 +168,21 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (session.lastError != null ||
+                  session.connectionState == TvConnectionState.error) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  session.lastError ??
+                      'The TV did not accept the connection. Try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              TextButton(
+                onPressed: () => _leave(context),
+                child: const Text('Cancel'),
+              ),
             ] else ...[
               const AnimatedConnectionRing(
                 active: true,
@@ -138,10 +190,49 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 child: Icon(Icons.tv_rounded, size: 40),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(
-                'Connecting…',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              if (session.lastError != null ||
+                  session.connectionState == TvConnectionState.error) ...[
+                Text(
+                  session.lastError ?? "Couldn't connect to this TV.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (device != null)
+                      FilledButton(
+                        // Same saved identity, same host - a bounded
+                        // network hiccup (Wi-Fi blip, TV briefly off)
+                        // never requires pairing again to retry.
+                        onPressed: () => _session.connect(device),
+                        child: const Text('Retry'),
+                      ),
+                    const SizedBox(width: AppSpacing.sm),
+                    OutlinedButton(
+                      onPressed: () => _leave(context),
+                      child: const Text('Back'),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Text(
+                  device == null
+                      ? 'Connecting…'
+                      : 'Connecting to ${device.name}…',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Never an indefinite modal-like state with no exit - a
+                // slow/hung connect attempt (a network stall, a TLS
+                // handshake that never resolves) must still be escapable.
+                TextButton(
+                  onPressed: () => _leave(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
             ],
           ],
         ),

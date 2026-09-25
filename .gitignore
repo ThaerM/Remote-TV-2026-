@@ -4,8 +4,8 @@
 .dart_tool/
 .packages
 build/
-# If you're building an application, you may want to check-in your pubspec.lock
-pubspec.lock
+# pubspec.lock is committed: this is an app, and release builds must be
+# reproducible.
 
 # Directory created by dartdoc
 # If you don't generate documentation locally you can remove this line.
@@ -41,6 +41,10 @@ doc/api/
 
 # Secrets - never commit
 *.keystore
+*.jks
 key.properties
 GoogleService-Info.plist
 google-services.json
+
+# Golden test failure diffs
+test/goldens/failures/

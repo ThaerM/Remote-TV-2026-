@@ -46,3 +46,33 @@ volume where present. No remote-control key events (not part of the
 standard) - `TvCapabilities` for a DLNA-only device should have `dpad`,
 `home`, `back` etc. all false, and rely on the UI's capability gating to
 show a casting-only surface instead of an empty remote screen.
+
+## Implementation status (`lib/tv/providers/dlna/`)
+
+**Implemented and unit-tested against a fake MediaRenderer; not yet run
+against real hardware.**
+
+- **A media target, not a remote**: DLNA/UPnP has no remote-control keys,
+  so `DlnaProvider` only reports `casting`, `mediaControls` and (when the
+  renderer has RenderingControl) volume/mute - never D-pad/keyboard/apps.
+- **Discovery**: SSDP `urn:schemas-upnp-org:device:MediaRenderer:1`, then
+  the device description for `friendlyName`, UDN and the AVTransport /
+  RenderingControl control URLs (resolved against `URLBase`/location).
+  Renderers without AVTransport aren't listed. Renderers have no fixed
+  port, so **Add TV by IP address can't find them** (`probeHost` returns
+  null), and a DLNA device can only be controlled after it's been
+  discovered in the current session. On iOS, SSDP needs the multicast
+  entitlement - without it DLNA isn't discoverable at all.
+- **Casting**: `SetAVTransportURI` with a DIDL-Lite item (`protocolInfo`
+  `http-get:*:<mime>:*`, title, class by MIME type) then `Play`;
+  `Pause`/`Play` toggle, `Seek REL_TIME H:MM:SS`, `Stop`; rewind/forward
+  seek -10 s/+30 s. UPnP faults 714-716 are reported as "can't play this
+  media".
+- **Status**: polled (`GetTransportInfo` + `GetPositionInfo`, every 2 s)
+  rather than GENA eventing, which would need an inbound HTTP server.
+- **Volume**: RenderingControl `GetVolume`/`SetVolume` (steps of 5,
+  clamped 0-100) and `GetMute`/`SetMute` on the Master channel.
+
+**Needs a real renderer**: DIDL/protocolInfo acceptance per brand, seek
+support, polling accuracy, renderers that need `SetNextAVTransportURI`
+or special headers.

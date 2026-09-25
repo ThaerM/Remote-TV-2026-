@@ -37,60 +37,69 @@ class _ConnectedSuccessScreenState extends ConsumerState<ConnectedSuccessScreen>
       tvSessionControllerProvider.select((s) => s.selectedDevice?.name),
     );
 
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ScaleTransition(
-                scale: CurvedAnimation(
-                  parent: _controller,
-                  curve: Curves.easeOutBack,
-                ),
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: const BoxDecoration(
-                    color: AppColors.success,
-                    shape: BoxShape.circle,
+    return PopScope(
+      // Reached via context.go, so there is usually nothing left to pop -
+      // the system back gesture/button must land on Remote (the primary
+      // action here) instead of exiting the app or re-showing Pairing.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(AppRoutes.remote);
+      },
+      child: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ScaleTransition(
+                  scale: CurvedAnimation(
+                    parent: _controller,
+                    curve: Curves.easeOutBack,
                   ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 56,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                'Connected!',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                deviceName ?? 'Your TV',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => context.go(AppRoutes.remote),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    child: Text('Go to Remote'),
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: const BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 56,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton(
-                onPressed: () => context.go(AppRoutes.devices),
-                child: const Text('Manage Device'),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xl),
+                Text(
+                  'Connected!',
+                  style: Theme.of(context).textTheme.displayLarge,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  deviceName ?? 'Your TV',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => context.go(AppRoutes.remote),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                      child: Text('Go to Remote'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: () => context.go(AppRoutes.devices),
+                  child: const Text('Manage Device'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

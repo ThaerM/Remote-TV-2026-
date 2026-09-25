@@ -24,4 +24,12 @@ enum TvPlatform {
     TvPlatform.fireTv => 'Fire TV',
     TvPlatform.dlna => 'DLNA / UPnP',
   };
+
+  /// True for platforms that are media-cast targets only - no
+  /// remote-control key input (see `DlnaProvider`'s and
+  /// `GoogleCastProvider`'s own docs). Used to pick which endpoint of a
+  /// grouped [PhysicalTvDevice] is the "remote" one - never for branching
+  /// on platform in feature UI, which stays capability-driven.
+  bool get isCastOnly =>
+      this == TvPlatform.googleCast || this == TvPlatform.dlna;
 }

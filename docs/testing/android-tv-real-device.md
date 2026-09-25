@@ -31,8 +31,9 @@ feature, and repeat it after any change to
   reason=...` line says why.
 - Whether the TLS handshake against a *real* Android TV Remote service
   succeeds (self-signed cert acceptance, `onBadCertificate` behavior).
-- Whether the pairing PIN shown on a real TV is genuinely 6 hex digits
-  and behaves as `docs/research/android-google-tv.md` describes.
+- That the pairing code shown on a real TV is 6 hexadecimal characters
+  (0-9, A-F, e.g. `A4F29C`) and behaves as
+  `docs/research/android-google-tv.md` describes.
 - Whether reconnect-after-idle-disconnect and reconnect-after-Wi-Fi-drop
   behave as designed on real hardware/OS timing.
 - Cross-manufacturer/cross-OS-version compatibility (Sony, TCL, Chromecast
@@ -56,7 +57,9 @@ feature, and repeat it after any change to
    devices (the fake catalog is unaffected). If nothing appears, see
    Troubleshooting.
 2. **Pair**: tap the device. Expect the TV to show a pairing prompt with
-   a **6-digit** code within a few seconds. Enter it in the app.
+   a **6-character hex** code (0-9 and A-F, e.g. `7B13E9`) within a few
+   seconds. Enter it in the app; the keyboard offers letters, and lower
+   case is upper-cased.
    - Expected success: the app navigates to the Remote screen.
    - Expected failure paths to also test: cancel pairing on the TV,
      enter a wrong code (app should show an error, not crash or hang).

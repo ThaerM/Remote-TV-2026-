@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/routing/app_router.dart';
+import '../../../core/config/app_links.dart';
+import '../../../core/platform/external_links.dart';
 import '../../../core/design/widgets/section_header.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../application/settings_controller.dart';
@@ -36,7 +38,7 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.tv_off_rounded),
               title: const Text('No TV connected'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go(AppRoutes.discovery),
+              onTap: () => context.push(AppRoutes.discovery),
             ),
           const Divider(),
           const SectionHeader('Appearance'),
@@ -99,37 +101,26 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push(AppRoutes.diagnostics),
           ),
-          SwitchListTile(
-            secondary: const Icon(Icons.developer_mode_rounded),
-            title: const Text('Developer / power user mode'),
-            subtitle: const Text(
-              'Off by default. Enables ADB/APK tools in a later phase.',
-            ),
-            value: settings.developerModeEnabled,
-            onChanged: notifier.setDeveloperModeEnabled,
-          ),
           const Divider(),
           const SectionHeader('Application'),
-          const ListTile(
-            leading: Icon(Icons.help_outline_rounded),
-            title: Text('Help & Support'),
+          ListTile(
+            leading: const Icon(Icons.help_outline_rounded),
+            title: const Text('Help & Support'),
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: () => openExternalLink(context, AppLinks.support),
           ),
-          const ListTile(
-            leading: Icon(Icons.feedback_outlined),
-            title: Text('Feedback'),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Privacy Policy'),
+            trailing: const Icon(Icons.open_in_new_rounded),
+            onTap: () => openExternalLink(context, AppLinks.privacyPolicy),
           ),
-          const ListTile(
-            leading: Icon(Icons.info_outline_rounded),
-            title: Text('About'),
-            subtitle: Text('Remote TV 2026 · Phase 1 build'),
-          ),
-          const ListTile(
-            leading: Icon(Icons.privacy_tip_outlined),
-            title: Text('Privacy'),
-          ),
-          const ListTile(
-            leading: Icon(Icons.gavel_outlined),
-            title: Text('Legal'),
+          ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: const Text('About'),
+            subtitle: const Text(AppLinks.appName),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push(AppRoutes.about),
           ),
         ],
       ),

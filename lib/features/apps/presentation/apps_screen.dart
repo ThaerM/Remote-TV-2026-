@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/app_spacing.dart';
 import '../../../tv/application/tv_session_controller.dart';
 import '../../../tv/domain/tv_domain.dart';
+import 'widgets/app_icon.dart';
 
 /// Full-grid view of apps the connected TV actually reports via
 /// `TvProvider.getApplications()`. Never shows an app the device didn't
@@ -69,20 +70,7 @@ class _AppTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: theme.cardTheme.color,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                border: Border.all(color: theme.dividerColor),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.smart_display_outlined,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+            AppIcon(app: app, size: 64),
             const SizedBox(height: AppSpacing.xs),
             Text(
               app.name,

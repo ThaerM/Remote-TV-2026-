@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support — Remote TV 2026</title>
+<meta name="description" content="Remote TV 2026 controls compatible smart TVs and streaming devices over your home Wi-Fi network, and can send media links to devices that accept casting. This p">
+<style>
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --text: #14161a; --muted: #5b6068;
+  --border: #e0e2e7; --accent: #2f6fe0; --code: #f0f1f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0b0d; --surface: #16181c; --text: #f4f5f7; --muted: #a3a8b2;
+    --border: #2a2d33; --accent: #4fd1ff; --code: #1f2227;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+}
+main {
+  max-width: 760px; margin: 0 auto; padding: 32px 16px 64px;
+}
+article {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 8px 24px 24px;
+}
+h1 { font-size: 1.8rem; line-height: 1.25; }
+h2 { font-size: 1.25rem; margin-top: 2rem; }
+h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+a { color: var(--accent); }
+code { background: var(--code); padding: 0 4px; border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; display: block;
+  overflow-x: auto; font-size: 0.95rem; }
+th, td { border: 1px solid var(--border); padding: 6px 10px;
+  text-align: left; vertical-align: top; }
+th { background: var(--code); }
+hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+footer { color: var(--muted); font-size: 0.9rem; text-align: center;
+  margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+<article>
+<h1>Remote TV 2026 — Support</h1>
+<p>Remote TV 2026 controls compatible smart TVs and streaming devices over
+your home Wi-Fi network, and can send media links to devices that accept
+casting. This page covers setup and the most common problems.</p>
+<h2>Before you start</h2>
+<ol>
+<li><strong>Same Wi-Fi network.</strong> Your phone and your TV must be on the same
+   network. Guest networks, "AP/client isolation", and some mesh or
+   business networks block devices from seeing each other.</li>
+<li><strong>TV switched on.</strong> Most TVs don't answer on the network while they are
+   off or in deep standby, and the app cannot switch a TV on.</li>
+<li><strong>Local Network permission (iPhone and iPad).</strong> The first time you
+   search for TVs, iOS asks to let Remote TV 2026 find devices on your
+   local network. Choose <strong>Allow</strong>. If you chose "Don't Allow", turn it on
+   in <strong>Settings → Privacy &amp; Security → Local Network → Remote TV 2026</strong>.</li>
+</ol>
+<h2>Supported devices</h2>
+<table>
+<thead>
+<tr>
+<th>Device family</th>
+<th>Remote control</th>
+<th>Casting links</th>
+<th>How it's found</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Android TV / Google TV</td>
+<td>Yes (pairing code on the TV)</td>
+<td>Via its Google Cast entry</td>
+<td>Automatically</td>
+</tr>
+<tr>
+<td>Chromecast and TVs with Chromecast built-in</td>
+<td>Volume and playback</td>
+<td>Yes</td>
+<td>Automatically</td>
+</tr>
+<tr>
+<td>Roku TV and Roku players</td>
+<td>Yes</td>
+<td>No</td>
+<td>Android: automatically. iPhone/iPad: <strong>Add TV by IP address</strong></td>
+</tr>
+<tr>
+<td>LG webOS TVs</td>
+<td>Yes (accept the prompt on the TV)</td>
+<td>No</td>
+<td>Android: automatically. iPhone/iPad: <strong>Add TV by IP address</strong></td>
+</tr>
+<tr>
+<td>Samsung Tizen TVs (2016 and newer)</td>
+<td>Yes (allow the connection on the TV)</td>
+<td>No</td>
+<td>Android: automatically. iPhone/iPad: <strong>Add TV by IP address</strong></td>
+</tr>
+<tr>
+<td>DLNA / UPnP media renderers</td>
+<td>Playback and volume</td>
+<td>Yes</td>
+<td>Android only</td>
+</tr>
+</tbody>
+</table>
+<p>Which buttons appear depends on what your TV reports it supports. The app
+hides controls a TV can't use. Features vary by model and firmware.</p>
+<p><strong>Not supported:</strong> Fire TV, Apple TV, screen mirroring, voice control,
+switching a TV on, and casting photos or videos stored on your phone.</p>
+<h2>My TV isn't found</h2>
+<ul>
+<li>Check that the phone and TV are on the <strong>same Wi-Fi</strong> and that the TV is
+  on.</li>
+<li>On iPhone/iPad, check the <strong>Local Network</strong> permission (see above).</li>
+<li>Tap <strong>Scan again</strong>. A scan takes a few seconds and stops by itself.</li>
+<li>Restart the TV, and turn the phone's Wi-Fi off and on.</li>
+<li>A Google TV can appear twice: once as <strong>Android TV / Google TV</strong> (the
+  remote) and once as <strong>Google Cast</strong> (for casting links). Both entries
+  are the same TV.</li>
+<li>Still nothing? Use <strong>Add TV by IP address</strong>.</li>
+</ul>
+<h2>Add a TV by IP address</h2>
+<ol>
+<li>Find the TV's IP address in its network settings (usually <strong>Settings →
+   Network → Status / About</strong>). It looks like <code>192.168.1.20</code>.</li>
+<li>In the app, open <strong>Find your TV → Add TV by IP address</strong> and enter it.</li>
+<li>The app checks which kind of TV answers at that address and adds it to
+   the list.</li>
+</ol>
+<p>On iPhone and iPad this is how Roku, LG, and Samsung TVs are added. iOS
+restricts the network discovery method (SSDP) those TVs use, so the app
+cannot find them automatically there. DLNA devices can't be added by
+address because they only publish their details through that same
+discovery method.</p>
+<h2>Pairing problems</h2>
+<ul>
+<li><strong>Android TV / Google TV:</strong> after you pick the TV, it shows a
+  6-character pairing code made of numbers <strong>0–9</strong> and letters <strong>A–F</strong>
+  (for example <code>A4F29C</code>). Type it in the app (lower case is fine), or
+  copy it and tap <strong>Paste code</strong>. It is not a numeric PIN, so letters
+  are expected. If the code is rejected, check it carefully and try
+  again. If the code disappears from the TV, go back and select
+  the TV again to get a new one.</li>
+<li><strong>LG:</strong> accept the "Remote TV 2026" prompt on the TV with its own
+  remote.</li>
+<li><strong>Samsung:</strong> choose <strong>Allow</strong> when the TV asks about the new device. If
+  you picked <strong>Deny</strong>, allow it again in the TV's device connection
+  settings (the menu name varies by model).</li>
+<li><strong>Roku and Google Cast</strong> don't need pairing.</li>
+<li>If a TV was reset or "forgot" your phone, remove it in <strong>Devices →
+  Forget</strong> (Android TV) and pair again.</li>
+</ul>
+<h2>Reconnecting</h2>
+<ul>
+<li>The app reconnects automatically after short network drops, for about
+  30 seconds. After that it stops trying and shows that the TV is
+  disconnected. Select the TV again to reconnect.</li>
+<li>If the TV was switched off or restarted, wait until it has fully started
+  and then select it again.</li>
+<li>If reconnecting keeps failing for an Android TV, <strong>Forget</strong> it in
+  <strong>Devices</strong> and pair again.</li>
+</ul>
+<h2>Casting a link</h2>
+<p>Open <strong>Cast</strong> while connected to a casting-capable device (Google Cast or
+DLNA) and paste a direct link to a media file, for example one ending in
+<code>.mp4</code>. The TV downloads the file itself, so the link must be reachable
+from the TV. Web pages and links that need a login usually won't play.</p>
+<h2>Privacy</h2>
+<p>The app works entirely on your local network. It has no account, no
+analytics, and no tracking, and it sends nothing to the developer. Pairing
+credentials stay in your phone's secure storage. Read the full
+<a href="privacy-policy.html">Privacy Policy</a>.</p>
+<h2>Contact</h2>
+<p>Remote TV 2026 is developed by <strong>Thaer Mosa</strong>.</p>
+<ul>
+<li>Website: <a href="https://thaerm.github.io/">https://thaerm.github.io/</a></li>
+<li>GitHub: <a href="https://github.com/ThaerM">https://github.com/ThaerM</a></li>
+</ul>
+<p>When reporting a problem, include your phone model and OS version, the TV
+brand and model, and what you tried.</p>
+<hr />
+<p>Remote TV 2026 is not affiliated with or endorsed by Google, Roku, LG,
+Samsung, or any other manufacturer. Product names are trademarks of their
+respective owners.</p>
+</article>
+<footer>
+<a href="support.html">Support</a> ·
+<a href="privacy-policy.html">Privacy Policy</a> ·
+<a href="https://thaerm.github.io/">thaerm.github.io</a>
+</footer>
+</main>
+</body>
+</html>

@@ -5,12 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-    <!-- Required to receive mDNS multicast responses during TV discovery;
-         held only while a scan is in progress (multicast_dns acquires
-         and releases the lock internally). -->
+    <!-- Required to receive mDNS/SSDP multicast responses during TV
+         discovery. MainActivity.kt holds a WifiManager.MulticastLock only
+         while a scan is in progress (Dart: PlatformMulticastLock). -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <application
-        android:label="remote_tv_2026"
+        android:label="Remote TV 2026"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -47,6 +47,12 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- About/Settings open the privacy policy, support page and
+             website in the browser (url_launcher). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

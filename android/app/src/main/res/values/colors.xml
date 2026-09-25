@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppColors.darkBackground: the launch screen matches the app's
+         default dark theme in both system light and dark mode. -->
+    <color name="launch_background">#0A0B0D</color>
+</resources>

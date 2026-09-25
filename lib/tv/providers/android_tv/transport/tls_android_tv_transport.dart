@@ -110,7 +110,13 @@ class TlsAndroidTvTransport implements AndroidTvMessageTransport {
   Future<void> close() async {
     await _rawSub?.cancel();
     if (!_doneCompleter.isCompleted) _doneCompleter.complete(null);
-    await _messagesController.close();
+    // Not awaited: a transport discarded before anything ever subscribed
+    // to `messages` (e.g. a superseded connect attempt) would otherwise
+    // hang here forever - StreamController.close()'s returned Future
+    // only resolves once a listener has seen the stream close, and one
+    // may never come. See core/network/text_socket.dart for the same
+    // fix.
+    unawaited(_messagesController.close());
     await _socket.close();
   }
 }

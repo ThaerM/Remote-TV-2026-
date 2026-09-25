@@ -138,7 +138,7 @@ class RemoteSession {
       incoming = RemoteMessage.fromBuffer(raw);
     } catch (error) {
       _logger.warning(
-        '[TV][CONNECTION][ANDROID_TV] could not parse message: $error',
+        '[TV][CONNECTION][ANDROID_TV] could not parse message type=${error.runtimeType}',
       );
       return;
     }

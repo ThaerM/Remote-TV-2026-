@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/app_colors.dart';
 import '../../../../core/design/app_spacing.dart';
 import '../../../../core/design/widgets/pressable_scale.dart';
 import '../../../settings/application/settings_controller.dart';
@@ -8,29 +9,30 @@ import '../../../settings/application/settings_controller.dart';
 /// A physical-rocker-style control for volume/channel: a single pill
 /// with an up/increase half and a down/decrease half, separated by a
 /// hairline - closer to a real remote's rocker switch than two separate
-/// round buttons. Press-and-hold repeats, matching the existing
-/// command-repeat behavior (`RemoteActionButton`'s timing), not a
-/// second independent repeat implementation.
+/// round buttons. Press-and-hold repeats. An optional widget (an icon,
+/// or a short label like "CH") can be slotted between the two halves.
 class RemoteRocker extends ConsumerStatefulWidget {
   const RemoteRocker({
-    required this.label,
     required this.onIncrease,
     required this.onDecrease,
     required this.increaseSemanticLabel,
     required this.decreaseSemanticLabel,
     this.icon,
+    this.dimmed = false,
     super.key,
   });
 
-  final String label;
   final VoidCallback onIncrease;
   final VoidCallback onDecrease;
   final String increaseSemanticLabel;
   final String decreaseSemanticLabel;
 
-  /// Optional icon shown between the two halves (e.g. a mute button
-  /// slotted in by the caller instead).
+  /// Optional slot between the two halves (e.g. a mute icon, or a
+  /// short "CH" label for the channel rocker).
   final Widget? icon;
+
+  /// Theater Mode: lower-contrast border, same functionality.
+  final bool dimmed;
 
   @override
   ConsumerState<RemoteRocker> createState() => _RemoteRockerState();
@@ -56,52 +58,52 @@ class _RemoteRockerState extends ConsumerState<RemoteRocker> {
     final hapticsEnabled = ref.watch(
       settingsControllerProvider.select((s) => s.hapticFeedbackEnabled),
     );
+    final borderColor = theme.dividerColor.withValues(
+      alpha: widget.dimmed ? 0.35 : 1,
+    );
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(widget.label, style: theme.textTheme.bodySmall),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          width: 56,
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(color: theme.dividerColor),
+    return Container(
+      width: 44,
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _RockerButton(
+            icon: Icons.add_rounded,
+            semanticLabel: widget.increaseSemanticLabel,
+            hapticsEnabled: hapticsEnabled,
+            pressed: _held == _RockerHalf.up,
+            onTap: widget.onIncrease,
+            onTapDown: () => _startRepeating(_RockerHalf.up, widget.onIncrease),
+            onTapUp: _stopRepeating,
+            onTapCancel: _stopRepeating,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _RockerButton(
-                icon: Icons.add_rounded,
-                semanticLabel: widget.increaseSemanticLabel,
-                hapticsEnabled: hapticsEnabled,
-                pressed: _held == _RockerHalf.up,
-                onTap: widget.onIncrease,
-                onTapDown: () =>
-                    _startRepeating(_RockerHalf.up, widget.onIncrease),
-                onTapUp: _stopRepeating,
-                onTapCancel: _stopRepeating,
-              ),
-              Divider(height: 1, color: theme.dividerColor),
-              if (widget.icon != null)
-                Padding(padding: const EdgeInsets.all(6), child: widget.icon),
-              _RockerButton(
-                icon: Icons.remove_rounded,
-                semanticLabel: widget.decreaseSemanticLabel,
-                hapticsEnabled: hapticsEnabled,
-                pressed: _held == _RockerHalf.down,
-                onTap: widget.onDecrease,
-                onTapDown: () =>
-                    _startRepeating(_RockerHalf.down, widget.onDecrease),
-                onTapUp: _stopRepeating,
-                onTapCancel: _stopRepeating,
-              ),
-            ],
+          Divider(height: 1, color: borderColor),
+          if (widget.icon != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: widget.icon,
+            ),
+            Divider(height: 1, color: borderColor),
+          ],
+          _RockerButton(
+            icon: Icons.remove_rounded,
+            semanticLabel: widget.decreaseSemanticLabel,
+            hapticsEnabled: hapticsEnabled,
+            pressed: _held == _RockerHalf.down,
+            onTap: widget.onDecrease,
+            onTapDown: () =>
+                _startRepeating(_RockerHalf.down, widget.onDecrease),
+            onTapUp: _stopRepeating,
+            onTapCancel: _stopRepeating,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -131,6 +133,8 @@ class _RockerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return PressableScale(
       hapticsEnabled: hapticsEnabled,
       semanticLabel: semanticLabel,
@@ -139,10 +143,15 @@ class _RockerButton extends StatelessWidget {
       onTapDown: (_) => onTapDown(),
       onTapUp: (_) => onTapUp(),
       onTapCancel: onTapCancel,
-      child: SizedBox(
-        width: 56,
-        height: 48,
-        child: Icon(icon, color: Theme.of(context).iconTheme.color),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        width: 44,
+        height: 40,
+        color: pressed
+            ? AppColors.glow.withValues(alpha: 0.14)
+            : Colors.transparent,
+        alignment: Alignment.center,
+        child: Icon(icon, size: 18, color: theme.iconTheme.color),
       ),
     );
   }

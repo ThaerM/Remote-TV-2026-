@@ -71,3 +71,10 @@ Do not build for CarPlay. Revisit only if Apple introduces a fitting app
 category. A Live Activity for "currently casting" status is the
 realistic near-term alternative and can be scoped independently whenever
 casting (Phase 2) is stable.
+
+## Status
+
+Re-checked: still no CarPlay category that a TV remote fits, and CarPlay
+templates can't render a remote/D-pad. **Not built.** The realistic
+alternative remains a Live Activity for an active cast session, now that
+casting exists.

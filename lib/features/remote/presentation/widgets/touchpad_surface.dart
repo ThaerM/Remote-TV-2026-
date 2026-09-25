@@ -18,9 +18,17 @@ import '../../../settings/application/settings_controller.dart';
 /// (so a longer/faster swipe can repeat), and a tap sends `select`. This
 /// is an honest mapping onto real capabilities, not a simulated pointer.
 class TouchpadSurface extends ConsumerStatefulWidget {
-  const TouchpadSurface({required this.onCommand, super.key});
+  const TouchpadSurface({
+    required this.onCommand,
+    this.theaterModeEnabled = false,
+    super.key,
+  });
 
   final void Function(TvCommandKey key) onCommand;
+
+  /// Dims the decorative touch glow - Theater Mode keeps the surface dark
+  /// and calm without touching gesture behavior.
+  final bool theaterModeEnabled;
 
   @override
   ConsumerState<TouchpadSurface> createState() => _TouchpadSurfaceState();
@@ -91,20 +99,49 @@ class _TouchpadSurfaceState extends ConsumerState<TouchpadSurface> {
         onPanEnd: _handlePanEnd,
         child: Container(
           width: double.infinity,
-          height: 260,
+          height: AppControlSize.dpadDiameter + 40,
           decoration: BoxDecoration(
-            color: theme.cardTheme.color,
+            // Same graphite housing tone as DpadControl's disc - the two
+            // layout modes are one physical surface, not two different
+            // materials.
+            color: theme.brightness == Brightness.dark
+                ? AppColors.darkSurface
+                : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: theme.dividerColor),
+            border: Border.all(
+              color: theme.dividerColor.withValues(
+                alpha: widget.theaterModeEnabled ? 0.35 : 0.6,
+              ),
+            ),
+            gradient: RadialGradient(
+              radius: 1.2,
+              colors: [
+                AppColors.glow.withValues(
+                  alpha: widget.theaterModeEnabled ? 0.03 : 0.07,
+                ),
+                Colors.transparent,
+              ],
+            ),
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Text(
-                'Swipe to navigate\nTap to select',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall,
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.touch_app_outlined,
+                    size: 28,
+                    color: theme.colorScheme.secondary,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Swipe to navigate\nTap to select',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
               ),
               if (_touchPosition != null && !reducedMotion)
                 AnimatedPositioned(

@@ -69,3 +69,13 @@
 Phase 8, after at least one and ideally two real remote providers are
 stable, since this feature is higher-risk and lower-priority than basic
 remote control.
+
+## Status
+
+**Not implemented.** Nothing in the app talks ADB; Developer Mode remains
+an off-by-default setting with no functional tooling behind it. When
+built, it needs a Dart ADB implementation (legacy `:5555` RSA-key auth
+with the on-TV prompt, and Android 11+ wireless-debugging pairing, which
+is TLS + a SPAKE2 pairing code) plus the requirements above. The same
+transport would back a power-user Fire TV provider
+(`docs/research/fire-tv.md`).

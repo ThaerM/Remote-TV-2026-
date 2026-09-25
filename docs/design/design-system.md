@@ -132,12 +132,17 @@ Feature-scoped:
 
 ## Golden tests
 
-Not added in this pass. Recommended strategy when picked up: pin
-`Welcome` (dark), `Remote` (dark, connected + full capabilities), and
-`Settings` (dark) as goldens, generated on the same CI runner image that
-will compare them (font rendering varies by platform/font availability,
-which is the usual source of golden flakiness) - do not add goldens
-generated locally and compared in a different CI environment.
+`test/goldens/screens_golden_test.dart` pins 13 screens at 393x852:
+Welcome; Discovery scanning / found / local-network-denied; Pairing (PIN);
+Connected Success; Remote D-pad (dark + light) and touchpad; Devices;
+Settings (dark + light); Cast (now playing). They're deterministic by
+construction: flutter_test's Ahem font (no system fonts), reduced motion
+on (ambient animations render their static form), fixed frame pumps
+(never `pumpAndSettle`), and a 0.5% pixel tolerance
+(`test/goldens/flutter_test_config.dart`) for anti-aliasing noise. CI pins
+the Flutter version they were generated with. After an intentional UI
+change: `flutter test --update-goldens test/goldens`, and look at the
+diffs before committing.
 
 ## Not yet built
 
