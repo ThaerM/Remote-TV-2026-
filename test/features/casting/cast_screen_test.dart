@@ -90,14 +90,96 @@ Future<ProviderContainer> _pump(
   return container;
 }
 
+class _FakeSessionController extends TvSessionController {
+  _FakeSessionController(super.ref, TvSessionState initial) {
+    state = initial;
+  }
+
+  int connectCalls = 0;
+
+  @override
+  Future<void> connect(TvDevice device) async {
+    connectCalls++;
+  }
+}
+
+const _droppedDevice = TvDevice(
+  id: 'cast:dropped',
+  name: 'Family room TV',
+  platform: TvPlatform.googleCast,
+);
+
 void main() {
+  testWidgets(
+    'a device that dropped offers Retry and Find another device, never '
+    'an indefinite spinner',
+    (tester) async {
+      late _FakeSessionController session;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            tvSessionControllerProvider.overrideWith((ref) {
+              session = _FakeSessionController(
+                ref,
+                const TvSessionState(
+                  selectedDevice: _droppedDevice,
+                  connectionState: TvConnectionState.disconnected,
+                ),
+              );
+              return session;
+            }),
+          ],
+          child: const MaterialApp(home: CastScreen()),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Connection lost'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+      expect(find.text('Find another device'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Retry'));
+      await tester.pump();
+
+      expect(session.connectCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'a device reconnecting shows a non-blocking status, no Retry button '
+    '(the session already retries on its own)',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            tvSessionControllerProvider.overrideWith(
+              (ref) => _FakeSessionController(
+                ref,
+                const TvSessionState(
+                  selectedDevice: _droppedDevice,
+                  connectionState: TvConnectionState.reconnecting,
+                ),
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: CastScreen()),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Family room TV'), findsOneWidget);
+      expect(find.textContaining('Reconnecting'), findsWidgets);
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+    },
+  );
+
   testWidgets('not connected: explains where Cast devices come from', (
     tester,
   ) async {
     await _pump(tester, null);
 
-    expect(find.text('Nothing to cast to yet'), findsOneWidget);
-    expect(find.text('Find a device'), findsOneWidget);
+    expect(find.text('No cast device connected'), findsOneWidget);
+    expect(find.text('Connect TV'), findsOneWidget);
   });
 
   testWidgets('a device without casting says so instead of a dead form', (
@@ -105,7 +187,10 @@ void main() {
   ) async {
     await _pump(tester, _Provider(const TvCapabilities(dpad: true)));
 
-    expect(find.textContaining("can't receive casts"), findsOneWidget);
+    expect(
+      find.textContaining("isn't available for this connection"),
+      findsOneWidget,
+    );
     expect(find.text('Cast'), findsOneWidget, reason: 'only the app bar');
   });
 
@@ -151,6 +236,52 @@ void main() {
       findsOneWidget,
     );
     expect(provider.casts, isEmpty);
+  });
+
+  testWidgets('shows a compact device header when connected and casting', (
+    tester,
+  ) async {
+    await _pump(tester, _Provider(const TvCapabilities(casting: true)));
+
+    expect(find.text('Living Room TV'), findsOneWidget);
+    expect(find.text('Connected'), findsOneWidget);
+  });
+
+  testWidgets('volume/mute controls only render when the device reports them', (
+    tester,
+  ) async {
+    final provider = _Provider(
+      const TvCapabilities(casting: true, volume: true, mute: true),
+    );
+    await _pump(tester, provider);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Media link'),
+      'https://example.com/bbb.mp4',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Cast'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Volume Up'), findsOneWidget);
+    expect(find.bySemanticsLabel('Volume Down'), findsOneWidget);
+    expect(find.bySemanticsLabel('Mute'), findsOneWidget);
+  });
+
+  testWidgets('no volume/mute row at all when the device reports neither', (
+    tester,
+  ) async {
+    final provider = _Provider(const TvCapabilities(casting: true));
+    await _pump(tester, provider);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Media link'),
+      'https://example.com/bbb.mp4',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Cast'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Volume Up'), findsNothing);
+    expect(find.bySemanticsLabel('Mute'), findsNothing);
   });
 
   testWidgets('a device error is shown inline', (tester) async {
