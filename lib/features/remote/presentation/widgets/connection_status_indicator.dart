@@ -83,10 +83,13 @@ class _ConnectionStatusIndicatorState extends State<ConnectionStatusIndicator>
           ),
           if (!widget.compact) ...[
             const SizedBox(width: AppSpacing.xs),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: color),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: color),
+              ),
             ),
           ],
         ],
